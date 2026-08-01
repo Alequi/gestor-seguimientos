@@ -2,7 +2,9 @@
 
 ## Estado
 
-Norma aprobada para todo el frontend. La implementación todavía no ha comenzado.
+Norma aprobada para todo el frontend. La integración técnica de Inertia 3, Vue 3, TypeScript y Vite está implementada, junto con una página mínima de comprobación.
+
+La página actual no define el sistema visual definitivo ni una librería de componentes. Usa CSS propio y estático únicamente para validar la carga responsive de la aplicación. No incorpora animaciones decorativas ni dependencias de movimiento.
 
 ## Fuente obligatoria
 
@@ -129,3 +131,16 @@ Las revisiones de código o movimiento deben presentar los hallazgos en esta tab
 - Necesidad real de una librería de movimiento.
 
 No se elegirán estas opciones hasta que el usuario las confirme o solicite una propuesta específica.
+
+## Implementación base actual
+
+```text
+resources/
+├── css/app.css             Estilos mínimos de la página técnica
+├── js/app.ts               Arranque de Vue e Inertia sin SSR
+├── js/Pages/Home.vue       Página de comprobación del entorno
+├── js/vite-env.d.ts        Tipos de Vite
+└── views/app.blade.php     Contenedor Blade exclusivo para Inertia
+```
+
+Blade se limita al documento raíz requerido por Inertia. No contiene componentes Vue ni lógica de interfaz, y ningún archivo `.vue` contiene PHP o Blade.

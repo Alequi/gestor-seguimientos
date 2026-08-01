@@ -4,7 +4,7 @@ Herramienta interna para importar expediciones desde un CSV de NACEX, localizar 
 
 ## Estado del proyecto
 
-El proyecto se encuentra en fase de arquitectura. El stack y la estructura base ya están aprobados, pero la implementación todavía no ha comenzado.
+La arquitectura y la base técnica están implementadas. Laravel 13, Inertia 3, Vue 3 y TypeScript funcionan en XAMPP; el desarrollo funcional del flujo NACEX → Shopify todavía no ha comenzado.
 
 ## Objetivo del MVP
 
@@ -41,6 +41,7 @@ Documentos principales:
 - [Requisitos funcionales](requisitos_funcionales_nacex_shopify.md)
 - [Arquitectura y estructura](DOC/ARQUITECTURA.md)
 - [Frontend y diseño de interacción](DOC/FRONTEND.md)
+- [Entorno de desarrollo](DOC/ENTORNO_DESARROLLO.md)
 - [Instrucciones para agentes](AGENTS.md)
 
 ## Stack aprobado
@@ -62,24 +63,70 @@ Todo cambio o nueva funcionalidad debe actualizar la documentación relacionada,
 ```text
 .
 ├── .agents/                       Documentación operativa para agentes
+├── app/                           Backend Laravel
+│   └── Http/Middleware/           Integración HTTP de Inertia
+├── bootstrap/                     Arranque de Laravel
+├── config/                        Configuración del framework
 ├── DOC/                           Documentación viva e índice
+├── public/                        Punto de entrada público y build frontend
+├── resources/
+│   ├── css/                       Estilos frontend
+│   ├── js/                        Vue, TypeScript y páginas Inertia
+│   └── views/                     Documento raíz de Inertia
+├── routes/                        Rutas web y de consola
+├── storage/                       Archivos temporales y logs locales
+├── tests/                         Pruebas automatizadas
 ├── AGENTS.md                      Normas obligatorias de desarrollo
-├── DOC/ARQUITECTURA.md            Stack y estructura aprobados
-├── DOC/FRONTEND.md                Diseño e interacción del frontend
+├── composer.json                  Dependencias y scripts PHP
+├── package.json                   Dependencias y scripts frontend
 ├── PRD_integracion_...md          Definición del producto
 ├── requisitos_funcionales_...md  Requisitos funcionales
+├── vite.config.ts                 Integración Vite/Vue/Inertia sin SSR
 └── README.md                      Entrada general al proyecto
 ```
 
+No existe carpeta `database/`, modelo Eloquent ni autenticación. Las capas `Domain`, `Application` e `Infrastructure` se crearán cuando el primer caso de uso las necesite; no se mantienen carpetas vacías ni abstracciones especulativas.
+
 ## Instalación y ejecución
 
-La primera ejecución se realizará en XAMPP. Antes de crear el proyecto deben actualizarse PHP 8.0.30 a una versión compatible con Laravel 13 y el entorno npm, que actualmente no funciona correctamente.
+Requisitos locales verificados:
+
+- PHP 8.3.33 con `curl`, `fileinfo`, `mbstring`, `openssl`, `PDO`, `xml` y `zip`.
+- Composer 2.10.2.
+- Node.js 22.14.0 y npm 10.9.2.
+- Apache de XAMPP.
+
+Preparación inicial desde la raíz:
+
+```powershell
+composer install
+Copy-Item .env.example .env
+php artisan key:generate
+npm ci
+npm run build
+```
+
+Con Apache iniciado, la aplicación queda disponible en:
+
+```text
+http://localhost/gestor-seguimientos/public
+```
+
+Para trabajar con recarga de recursos frontend:
+
+```powershell
+npm run dev
+```
+
+No debe ejecutarse `php artisan migrate`: la aplicación no utiliza base de datos propia. La guía detallada y las copias de respaldo del entorno están en [DOC/ENTORNO_DESARROLLO.md](DOC/ENTORNO_DESARROLLO.md).
 
 Después se adaptará el despliegue a un hosting cuyas capacidades todavía están pendientes de concretar.
 
 ## Configuración
 
-Pendiente de definir. Las futuras credenciales de Shopify deberán mantenerse fuera del código y de los archivos versionados.
+`.env.example` contiene únicamente valores locales sin secretos y utiliza sesiones/caché en memoria y cola síncrona. El `.env` real está ignorado por Git.
+
+Las variables de Shopify, la versión de Admin GraphQL API y el mecanismo definitivo para mantener resultados temporales siguen pendientes. Las futuras credenciales deberán permanecer fuera del código, documentación, logs y archivos versionados.
 
 ## Desarrollo
 
@@ -92,5 +139,17 @@ DOC/INDEX.md → documentación relacionada → código → actualización docum
 Antes de modificar código también debe confirmarse que toda la información necesaria está definida. Una ambigüedad o un dato ausente obliga a detener el desarrollo y preguntar; no se aplican supuestos ni valores elegidos por conveniencia.
 
 El proyecto seguirá Clean Code y separación estricta de responsabilidades. PHP/Laravel, infraestructura, casos de uso y componentes Vue deben mantenerse en sus capas correspondientes. Los componentes `.vue` utilizarán el estándar oficial de Vue, pero no incluirán PHP ni Blade.
+
+Comprobaciones disponibles:
+
+```powershell
+vendor\bin\pint --test
+php artisan test
+npm run typecheck
+npm run build
+composer validate --strict --no-check-publish
+composer audit --locked
+npm audit
+```
 
 No se deben realizar operaciones contra una tienda real, despliegues, commits o pushes salvo petición explícita.

@@ -2,7 +2,7 @@
 
 ## Estado
 
-Decisión aprobada para el MVP. La implementación todavía no ha comenzado.
+La base técnica está implementada. Laravel, Inertia, Vue y TypeScript están integrados y verificados; las funcionalidades del dominio todavía no han comenzado.
 
 ## Stack aprobado
 
@@ -19,6 +19,15 @@ Decisión aprobada para el MVP. La implementación todavía no ha comenzado.
 | Entorno inicial | XAMPP |
 | Entorno posterior | Hosting compatible, pendiente de concretar |
 
+Versiones instaladas en el entorno inicial:
+
+- PHP 8.3.33 Thread Safe x64.
+- Laravel Framework 13.23.0.
+- Inertia Laravel 3.0.0 y adaptadores frontend 3.6.1.
+- Vue 3.5.40, TypeScript 5.9.3 y Vite 7.3.6.
+
+El detalle operativo se mantiene en `DOC/ENTORNO_DESARROLLO.md`.
+
 ## Principios arquitectónicos
 
 - El dominio no debe depender de Laravel, Shopify, Inertia ni Vue.
@@ -30,9 +39,11 @@ Decisión aprobada para el MVP. La implementación todavía no ha comenzado.
 - No se introduce persistencia propia ni dependencia de Eloquent para el flujo funcional.
 - La solución debe mantenerse como un monolito modular; no se creará una API separada para Inertia.
 
-## Estructura backend prevista
+## Estructura backend
 
-La estructura se concretará al crear el proyecto, manteniendo estas responsabilidades:
+La base Laravel contiene actualmente únicamente el punto de entrada, configuración, middleware de Inertia y la ruta de comprobación. No se ha incorporado Eloquent, un modelo de usuario ni una carpeta `database/`.
+
+Las capas funcionales se crearán progresivamente con esta estructura aprobada:
 
 ```text
 app/
@@ -52,9 +63,9 @@ app/
     └── Requests/          Validación de peticiones y archivos
 ```
 
-Esta estructura no autoriza a crear carpetas vacías ni abstracciones especulativas. Cada elemento se incorporará cuando exista un caso de uso que lo necesite.
+Esta estructura no autoriza a crear carpetas vacías ni abstracciones especulativas. Cada elemento se incorporará cuando exista un caso de uso que lo necesite. Por ello, las carpetas de dominio, aplicación e infraestructura todavía no existen en el repositorio.
 
-## Estructura frontend prevista
+## Estructura frontend
 
 Todo trabajo sobre esta capa debe comenzar leyendo `DOC/FRONTEND.md` y la skill `$emil-design-eng` completa.
 
@@ -67,6 +78,8 @@ resources/js/
 ├── Types/                 Contratos TypeScript de datos de interfaz
 └── app.ts                 Punto de entrada de Vue e Inertia
 ```
+
+Actualmente están implementados `app.ts`, la declaración de tipos de Vite y `Pages/Home.vue`. Las demás carpetas se crearán únicamente cuando una funcionalidad concreta las necesite.
 
 Los componentes utilizarán el formato Single-File Component estándar:
 
@@ -120,13 +133,14 @@ Los nombres definitivos de variables y la versión inicial de la API se document
 
 ## Despliegue
 
-La primera ejecución será en XAMPP. Antes de crear el proyecto debe actualizarse el PHP local actual a una versión compatible con Laravel 13 y repararse el entorno npm.
+La primera ejecución funciona en XAMPP mediante `http://localhost/gestor-seguimientos/public`. Apache y PHP 8.3.33 sirven la aplicación, y los recursos frontend se generan con Vite.
+
+La configuración provisional usa sesiones y caché en memoria (`array`) y cola síncrona. Esto permite ejecutar la base sin introducir persistencia; no decide todavía cómo se conservarán los resultados temporales del análisis entre peticiones.
 
 La adaptación posterior a hosting se diseñará cuando se conozcan sus capacidades. No se asumirán versión de PHP, servidor web, acceso por terminal ni mecanismo de despliegue.
 
 ## Decisiones todavía necesarias
 
-- Versión exacta de PHP 8.3 o superior que se instalará en XAMPP.
 - Versión inicial de Shopify Admin GraphQL API.
 - Mecanismo exacto para mantener los resultados temporales entre peticiones sin base de datos.
 - Estrategia de progreso durante la ejecución del lote.
