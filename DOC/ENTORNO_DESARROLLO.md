@@ -52,6 +52,8 @@ Con el servicio Apache iniciado, la compilación de producción se sirve en:
 http://localhost/gestor-seguimientos/public
 ```
 
+`APP_URL` y `ASSET_URL` deben apuntar a esa URL en el entorno XAMPP. `ASSET_URL` permite que los módulos Vue cargados de forma dinámica resuelvan su JavaScript y CSS desde la subcarpeta correcta. Ambos valores deberán adaptarse al dominio y directorio público del hosting definitivo antes de compilar allí.
+
 Durante el desarrollo frontend puede mantenerse Vite activo en otra terminal:
 
 ```powershell
@@ -78,11 +80,13 @@ La verificación inicial confirmó formato PHP correcto, una prueba Feature de l
 
 `.env.example` utiliza:
 
-- `SESSION_DRIVER=array`.
+- `SESSION_DRIVER=cookie`, solo para CSRF y mensajes operativos.
 - `CACHE_STORE=array`.
 - `QUEUE_CONNECTION=sync`.
+- `NACEX_CSV_MAX_SIZE_KB=5120`.
+- `NACEX_CSV_MAX_ROWS=1000`.
 
-Estos valores permiten arrancar sin base de datos. No resuelven todavía el mecanismo definitivo para mantener un análisis entre peticiones; esa decisión continúa pendiente y deberá documentarse antes de implementar el flujo del CSV.
+Estos valores permiten arrancar sin base de datos. El CSV y sus resultados no se guardan en la cookie: se devuelven directamente a Vue y permanecen solo en memoria hasta recargar o cerrar la página.
 
 ## Adaptación posterior
 

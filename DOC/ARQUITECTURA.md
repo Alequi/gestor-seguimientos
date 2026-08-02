@@ -2,7 +2,7 @@
 
 ## Estado
 
-La base técnica está implementada. Laravel, Inertia, Vue y TypeScript están integrados y verificados; las funcionalidades del dominio todavía no han comenzado.
+La base técnica y la importación inicial están implementadas. Laravel, Inertia, Vue y TypeScript están integrados y verificados; RF-01 valida la estructura del CSV y RF-02 adapta sus filas a DTO inmutables de aplicación sin aplicar todavía reglas de dominio.
 
 ## Stack aprobado
 
@@ -41,7 +41,7 @@ El detalle operativo se mantiene en `DOC/ENTORNO_DESARROLLO.md`.
 
 ## Estructura backend
 
-La base Laravel contiene actualmente únicamente el punto de entrada, configuración, middleware de Inertia y la ruta de comprobación. No se ha incorporado Eloquent, un modelo de usuario ni una carpeta `database/`.
+La base Laravel contiene el punto de entrada, configuración, middleware de Inertia y el primer caso de uso de validación de CSV. No se ha incorporado Eloquent, un modelo de usuario ni una carpeta `database/`.
 
 Las capas funcionales se crearán progresivamente con esta estructura aprobada:
 
@@ -63,7 +63,9 @@ app/
     └── Requests/          Validación de peticiones y archivos
 ```
 
-Esta estructura no autoriza a crear carpetas vacías ni abstracciones especulativas. Cada elemento se incorporará cuando exista un caso de uso que lo necesite. Por ello, las carpetas de dominio, aplicación e infraestructura todavía no existen en el repositorio.
+Esta estructura no autoriza a crear carpetas vacías ni abstracciones especulativas. Cada elemento se incorpora cuando existe un caso de uso que lo necesita.
+
+RF-01 creó un caso de uso en `Application/Actions`, su resultado inmutable en `Application/Data`, un contrato de inspección en `Application/Contracts` y la implementación nativa de lectura en `Infrastructure/Nacex/Csv`. RF-02 incorpora `NacexCsvRow` como DTO inmutable y hace que la infraestructura adapte por posición las seis columnas requeridas, siempre como cadenas. La capa HTTP contiene un controlador invocable y un `FormRequest`; no contiene parsing de CSV.
 
 ## Estructura frontend
 
@@ -79,7 +81,7 @@ resources/js/
 └── app.ts                 Punto de entrada de Vue e Inertia
 ```
 
-Actualmente están implementados `app.ts`, la declaración de tipos de Vite y `Pages/Home.vue`. Las demás carpetas se crearán únicamente cuando una funcionalidad concreta las necesite.
+Actualmente están implementados `app.ts`, la página `Home.vue`, el panel de carga CSV, su composable de validación y los contratos TypeScript de archivo, resultado y fila NACEX. Las demás carpetas se crearán únicamente cuando una funcionalidad concreta las necesite.
 
 Los componentes utilizarán el formato Single-File Component estándar:
 
@@ -135,14 +137,15 @@ Los nombres definitivos de variables y la versión inicial de la API se document
 
 La primera ejecución funciona en XAMPP mediante `http://localhost/gestor-seguimientos/public`. Apache y PHP 8.3.33 sirven la aplicación, y los recursos frontend se generan con Vite.
 
-La configuración provisional usa sesiones y caché en memoria (`array`) y cola síncrona. Esto permite ejecutar la base sin introducir persistencia; no decide todavía cómo se conservarán los resultados temporales del análisis entre peticiones.
+La sesión utiliza el driver cifrado `cookie` exclusivamente para mantener CSRF y mensajes operativos entre peticiones. Está prohibido guardar en ella el CSV, datos personales o resultados del análisis. La caché permanece en memoria (`array`) y la cola es síncrona.
+
+Los resultados de validación y análisis se devolverán directamente al frontend y permanecerán únicamente en el estado en memoria de Vue. Se perderán al recargar o cerrar la página. Esta estrategia evita base de datos, archivos de sesión con datos operativos y persistencia en el navegador.
 
 La adaptación posterior a hosting se diseñará cuando se conozcan sus capacidades. No se asumirán versión de PHP, servidor web, acceso por terminal ni mecanismo de despliegue.
 
 ## Decisiones todavía necesarias
 
 - Versión inicial de Shopify Admin GraphQL API.
-- Mecanismo exacto para mantener los resultados temporales entre peticiones sin base de datos.
 - Estrategia de progreso durante la ejecución del lote.
 - Librería visual y sistema de estilos.
 - Capacidades y restricciones del hosting definitivo.

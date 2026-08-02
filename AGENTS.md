@@ -87,6 +87,8 @@ Esta secuencia no puede omitirse, aunque el cambio parezca pequeño.
 - La notificación al cliente está activada por defecto, pero solo se solicita al crear un cumplimiento nuevo.
 - El fallo de una fila no debe detener el resto del lote.
 - Los datos de la sesión y los informes no se almacenan de forma persistente.
+- `SESSION_DRIVER=cookie` se utiliza únicamente para CSRF y mensajes operativos; está prohibido guardar en la cookie el CSV, datos personales o resultados.
+- Los resultados temporales se mantienen solo en memoria en Vue y se pierden al recargar o cerrar la página.
 
 ## Reglas de seguridad funcional
 
