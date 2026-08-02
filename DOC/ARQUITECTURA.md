@@ -2,7 +2,7 @@
 
 ## Estado
 
-La base técnica y la importación inicial están implementadas. Laravel, Inertia, Vue y TypeScript están integrados y verificados; RF-01 valida la estructura del CSV y RF-02 adapta sus filas a DTO inmutables de aplicación sin aplicar todavía reglas de dominio.
+La base técnica y la importación inicial están implementadas. Laravel, Inertia, Vue y TypeScript están integrados; RF-01 valida la estructura, RF-02 adapta las filas a DTO inmutables, RF-03 filtra las candidatas y RF-04 las deduplica sin automatizar grupos contradictorios.
 
 ## Stack aprobado
 
@@ -65,7 +65,11 @@ app/
 
 Esta estructura no autoriza a crear carpetas vacías ni abstracciones especulativas. Cada elemento se incorpora cuando existe un caso de uso que lo necesita.
 
-RF-01 creó un caso de uso en `Application/Actions`, su resultado inmutable en `Application/Data`, un contrato de inspección en `Application/Contracts` y la implementación nativa de lectura en `Infrastructure/Nacex/Csv`. RF-02 incorpora `NacexCsvRow` como DTO inmutable y hace que la infraestructura adapte por posición las seis columnas requeridas, siempre como cadenas. La capa HTTP contiene un controlador invocable y un `FormRequest`; no contiene parsing de CSV.
+RF-01 creó un caso de uso en `Application/Actions`, su resultado inmutable en `Application/Data`, un contrato de inspección en `Application/Contracts` y la implementación nativa de lectura en `Infrastructure/Nacex/Csv`. RF-02 incorpora `NacexCsvRow` como DTO inmutable y hace que la infraestructura adapte por posición las seis columnas requeridas, siempre como cadenas.
+
+RF-03 crea `Domain/Shipment/NacexShipmentStatus`. Esta clase encapsula la equivalencia con `Solicitada`; el caso de uso la aplica a las filas leídas y conserva separados el total del archivo y las candidatas. La infraestructura no conoce la regla de estado y la capa HTTP continúa limitada a transformar la petición y la respuesta.
+
+RF-04 añade `Domain/Shipment/NacexShipmentIdentity` para construir la clave temporal mediante agencia ajustada a cuatro dígitos y albarán. `Application/Actions/DeduplicateNacexCsvRows` agrupa los DTO después del filtro de estado y devuelve un resultado tipado con candidatas únicas y conflictos. Los DTO de conflicto conservan todas las filas originales para revisión; el dominio no depende de los DTO de aplicación y la infraestructura continúa limitada al parsing.
 
 ## Estructura frontend
 
@@ -82,6 +86,8 @@ resources/js/
 ```
 
 Actualmente están implementados `app.ts`, la página `Home.vue`, el panel de carga CSV, su composable de validación y los contratos TypeScript de archivo, resultado y fila NACEX. Las demás carpetas se crearán únicamente cuando una funcionalidad concreta las necesite.
+
+`useCsvValidation` actúa como adaptador del límite HTTP: solo entrega al componente resultados con el contrato completo. Mantiene compatibilidad transitoria con respuestas RF-03 durante actualizaciones locales desacompasadas y rechaza respuestas estructuralmente incompletas con un mensaje operativo, evitando fallos de renderizado.
 
 Los componentes utilizarán el formato Single-File Component estándar:
 

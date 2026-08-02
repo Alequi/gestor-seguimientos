@@ -130,18 +130,90 @@ function formatFileSize(bytes: number): string {
                     </ul>
                 </div>
 
-                <div v-if="validationResult" class="feedback feedback-success" role="status">
+                <div
+                    v-if="validationResult"
+                    class="feedback feedback-result"
+                    :class="
+                        validationResult.requestedRowCount > 0 &&
+                        validationResult.duplicateConflictCount === 0
+                            ? 'feedback-success'
+                            : 'feedback-warning'
+                    "
+                    role="status"
+                >
                     <div>
-                        <strong>CSV validado correctamente</strong>
-                        <p>
-                            La estructura es válida y los campos se han leído como texto sin
-                            perder caracteres ni ceros iniciales.
+                        <strong v-if="validationResult.duplicateConflictCount > 0">
+                            Hay expediciones que requieren revisión
+                        </strong>
+                        <strong v-else-if="validationResult.processableRowCount > 0">
+                            Expediciones deduplicadas correctamente
+                        </strong>
+                        <strong v-else>Sin expediciones solicitadas</strong>
+                        <p
+                            v-if="
+                                validationResult.duplicateConflictCount > 0 &&
+                                validationResult.processableRowCount > 0
+                            "
+                        >
+                            Las filas con la misma agencia y albarán que contienen datos
+                            contradictorios se han apartado y no se procesarán automáticamente.
+                            Las demás expediciones pueden continuar.
+                        </p>
+                        <p v-else-if="validationResult.duplicateConflictCount > 0">
+                            Todas las filas solicitadas pertenecen a grupos con datos
+                            contradictorios. Se han apartado para revisión y no se procesará ninguna
+                            automáticamente.
+                        </p>
+                        <p v-else-if="validationResult.processableRowCount > 0">
+                            La estructura es válida. Las repeticiones de una misma expedición se
+                            han reducido a una sola candidata sin modificar sus valores originales.
+                        </p>
+                        <p v-else>
+                            No se han encontrado filas con estado «Solicitada». No se realizará
+                            ningún cambio en Shopify.
                         </p>
                     </div>
+                    <ul
+                        v-if="validationResult.duplicateConflictCount > 0"
+                        class="duplicate-conflicts"
+                        aria-label="Expediciones duplicadas con datos contradictorios"
+                    >
+                        <li
+                            v-for="conflict in validationResult.duplicateConflicts"
+                            :key="`${conflict.originAgency}-${conflict.trackingNumber}`"
+                        >
+                            <strong>
+                                Agencia {{ conflict.originAgency }} · Albarán
+                                {{ conflict.trackingNumber }}
+                            </strong>
+                            <span>
+                                {{ conflict.rows.length.toLocaleString('es-ES') }} filas para
+                                revisar
+                            </span>
+                        </li>
+                    </ul>
                     <dl>
                         <div>
-                            <dt>Filas</dt>
+                            <dt>Filas totales</dt>
                             <dd>{{ validationResult.rowCount.toLocaleString('es-ES') }}</dd>
+                        </div>
+                        <div>
+                            <dt>Solicitadas</dt>
+                            <dd>
+                                {{ validationResult.requestedRowCount.toLocaleString('es-ES') }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt>Procesables</dt>
+                            <dd>
+                                {{ validationResult.processableRowCount.toLocaleString('es-ES') }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt>Conflictos</dt>
+                            <dd>
+                                {{ validationResult.duplicateConflictCount.toLocaleString('es-ES') }}
+                            </dd>
                         </div>
                         <div>
                             <dt>Codificación</dt>
@@ -398,41 +470,88 @@ function formatFileSize(bytes: number): string {
     padding-left: 20px;
 }
 
-.feedback-success {
+.feedback-result {
     display: grid;
     gap: 16px;
+}
+
+.feedback-success {
     border-color: #b9ddc6;
     color: #23623a;
     background: #f1faf4;
 }
 
-.feedback-success p {
+.feedback-warning {
+    border-color: #e8d49c;
+    color: #755817;
+    background: #fff9e8;
+}
+
+.feedback-result p {
     margin: 4px 0 0;
     line-height: 1.5;
 }
 
-.feedback-success dl {
+.duplicate-conflicts {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.duplicate-conflicts li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 12px;
+    border: 1px solid rgb(132 109 57 / 22%);
+    border-radius: 9px;
+    background: rgb(255 255 255 / 72%);
+}
+
+.duplicate-conflicts strong {
+    color: #5f4815;
+    font-size: 0.875rem;
+}
+
+.duplicate-conflicts span {
+    flex: 0 0 auto;
+    color: #755817;
+    font-size: 0.8125rem;
+}
+
+.feedback-result dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     margin: 0;
 }
 
-.feedback-success dl > div {
+.feedback-result dl > div {
     padding: 10px 12px;
     border-radius: 9px;
     background: rgb(255 255 255 / 72%);
 }
 
-.feedback-success dt {
+.feedback-result dt {
     color: #568068;
     font-size: 0.75rem;
 }
 
-.feedback-success dd {
+.feedback-result dd {
     margin: 3px 0 0;
     color: #194b2c;
     font-weight: 750;
+}
+
+.feedback-warning dt {
+    color: #846d39;
+}
+
+.feedback-warning dd {
+    color: #5f4815;
 }
 
 .primary-action {
@@ -586,8 +705,14 @@ function formatFileSize(bytes: number): string {
         padding: 22px 16px;
     }
 
-    .feedback-success dl {
+    .feedback-result dl {
         grid-template-columns: 1fr;
+    }
+
+    .duplicate-conflicts li {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 3px;
     }
 }
 
