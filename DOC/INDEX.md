@@ -19,6 +19,7 @@ Antes de iniciar cualquier cambio o nueva funcionalidad, se debe leer este índi
 | [Arquitectura y estructura](ARQUITECTURA.md) | Stack aprobado, separación de responsabilidades, estructura prevista y normas de Clean Code. | Vigente |
 | [Frontend y diseño de interacción](FRONTEND.md) | Criterios obligatorios de interfaz, componentes, movimiento, rendimiento y accesibilidad basados en `$emil-design-eng`. | Vigente |
 | [Entorno de desarrollo](ENTORNO_DESARROLLO.md) | Versiones instaladas, preparación de XAMPP, puesta en marcha, verificaciones y copias de respaldo. | Vigente |
+| [Importación de CSV NACEX](IMPORTACION_CSV.md) | Contrato, validaciones, lectura textual, interfaz y límites de la carga de archivos NACEX (RF-01 y RF-02). | Vigente |
 
 ## Decisiones confirmadas posteriores a los documentos de producto
 
@@ -39,6 +40,8 @@ Estas decisiones deben incorporarse al documento temático correspondiente cuand
 - La estructura y el código deben seguir `DOC/ARQUITECTURA.md`; el código spaghetti y la mezcla de responsabilidades están prohibidos.
 - Todo trabajo de frontend debe utilizar la skill `$emil-design-eng` y seguir `DOC/FRONTEND.md`.
 - El entorno inicial utiliza PHP 8.3.33 Thread Safe x64, Composer 2.10.2, Node.js 22.14.0 y npm 10.9.2.
+- La sesión cifrada en cookie se utiliza únicamente para CSRF y mensajes operativos; nunca contendrá el CSV, datos de clientes ni resultados del análisis.
+- Los datos devueltos por la validación o el análisis permanecerán solo en memoria en Vue y se perderán al recargar la página.
 
 ## Decisiones pendientes
 

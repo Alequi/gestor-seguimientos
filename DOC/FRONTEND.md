@@ -4,7 +4,7 @@
 
 Norma aprobada para todo el frontend. La integración técnica de Inertia 3, Vue 3, TypeScript y Vite está implementada, junto con una página mínima de comprobación.
 
-La página actual no define el sistema visual definitivo ni una librería de componentes. Usa CSS propio y estático únicamente para validar la carga responsive de la aplicación. No incorpora animaciones decorativas ni dependencias de movimiento.
+RF-01 define el sistema visual inicial mediante CSS propio: tipografía del sistema, superficies neutras, azul para acciones y foco, verde para validación y rojo para errores. RF-02 conserva la misma interacción y amplía el contrato TypeScript para mantener en memoria las filas leídas como texto. No utiliza librería de componentes ni de movimiento.
 
 ## Fuente obligatoria
 
@@ -125,8 +125,7 @@ Las revisiones de código o movimiento deben presentar los hallazgos en esta tab
 
 ## Decisiones pendientes
 
-- Sistema visual: colores, tipografía, escala de espaciado y densidad de tabla.
-- Librería de componentes, si se utilizará alguna.
+- Densidad y comportamiento visual de la futura tabla de resultados.
 - Estrategia exacta para toasts, modales, popovers y tooltips.
 - Necesidad real de una librería de movimiento.
 
@@ -136,11 +135,18 @@ No se elegirán estas opciones hasta que el usuario las confirme o solicite una 
 
 ```text
 resources/
-├── css/app.css             Estilos mínimos de la página técnica
+├── css/app.css             Reset y tokens visuales globales
 ├── js/app.ts               Arranque de Vue e Inertia sin SSR
-├── js/Pages/Home.vue       Página de comprobación del entorno
+├── js/Components/Csv/      Panel presentacional de carga
+├── js/Composables/         Estado y petición de validación
+├── js/Pages/Home.vue       Página de importación
+├── js/Types/               Contratos TypeScript de RF-01 y RF-02
 ├── js/vite-env.d.ts        Tipos de Vite
 └── views/app.blade.php     Contenedor Blade exclusivo para Inertia
 ```
 
 Blade se limita al documento raíz requerido por Inertia. No contiene componentes Vue ni lógica de interfaz, y ningún archivo `.vue` contiene PHP o Blade.
+
+La interfaz RF-01 utiliza feedback de pulsación solo en punteros precisos, transiciones breves de propiedades concretas y desactiva el movimiento bajo `prefers-reduced-motion`. Los estados de éxito y error usan `role="status"` y `role="alert"`, respectivamente.
+
+RF-02 no introduce una tabla ni controles adicionales. El panel confirma en el estado de éxito que la lectura conservó texto y ceros iniciales, mientras el composable retiene el resultado completo —incluidas las filas— únicamente en memoria. La futura presentación y densidad de una tabla siguen fuera de este requisito.

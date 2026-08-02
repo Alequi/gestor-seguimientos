@@ -248,7 +248,7 @@ Las columnas vacías adicionales deberán ignorarse.
 El MVP deberá aceptar archivos de hasta:
 
 - 5 MB.
-- 10.000 filas.
+- 1.000 filas de datos, sin contar la cabecera ni líneas vacías.
 
 Estos límites serán configurables.
 

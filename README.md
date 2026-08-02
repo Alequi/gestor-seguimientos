@@ -4,7 +4,21 @@ Herramienta interna para importar expediciones desde un CSV de NACEX, localizar 
 
 ## Estado del proyecto
 
-La arquitectura y la base técnica están implementadas. Laravel 13, Inertia 3, Vue 3 y TypeScript funcionan en XAMPP; el desarrollo funcional del flujo NACEX → Shopify todavía no ha comenzado.
+La arquitectura y la base técnica están implementadas. RF-01 permite seleccionar, arrastrar y validar estructuralmente un CSV de NACEX; RF-02 lee sus seis campos requeridos como texto y los mantiene temporalmente en memoria Vue. Todavía no se consulta ni modifica Shopify.
+
+## Funcionalidad disponible
+
+- Selección o arrastre de un archivo `.csv`.
+- Validación de tipo, extensión y límite de 5 MB.
+- Lectura de UTF-8, Windows-1252 e ISO-8859-1.
+- Separador obligatorio `;`.
+- Comprobación de las seis cabeceras NACEX obligatorias.
+- Rechazo de archivos vacíos o con más de 1.000 filas de datos.
+- Lectura de cada fila respetando el entrecomillado CSV y los `;` incluidos dentro de campos.
+- Conservación de tildes, `ñ`, `ü`, ceros iniciales y albaranes largos sin conversión numérica.
+- Transporte temporal de agencia, albarán, fecha, referencia, código postal y estado como cadenas UTF-8.
+- Feedback accesible con nombre, tamaño, codificación y filas validadas.
+- Procesamiento temporal sin guardar el archivo ni sus datos.
 
 ## Objetivo del MVP
 
@@ -42,6 +56,7 @@ Documentos principales:
 - [Arquitectura y estructura](DOC/ARQUITECTURA.md)
 - [Frontend y diseño de interacción](DOC/FRONTEND.md)
 - [Entorno de desarrollo](DOC/ENTORNO_DESARROLLO.md)
+- [Importación de CSV NACEX](DOC/IMPORTACION_CSV.md)
 - [Instrucciones para agentes](AGENTS.md)
 
 ## Stack aprobado
@@ -64,7 +79,9 @@ Todo cambio o nueva funcionalidad debe actualizar la documentación relacionada,
 .
 ├── .agents/                       Documentación operativa para agentes
 ├── app/                           Backend Laravel
-│   └── Http/Middleware/           Integración HTTP de Inertia
+│   ├── Application/               Casos de uso, contratos y DTO de archivo y fila NACEX
+│   ├── Http/                      Controladores, requests y middleware
+│   └── Infrastructure/Nacex/      Lectura e inspección del CSV
 ├── bootstrap/                     Arranque de Laravel
 ├── config/                        Configuración del framework
 ├── DOC/                           Documentación viva e índice
@@ -85,7 +102,7 @@ Todo cambio o nueva funcionalidad debe actualizar la documentación relacionada,
 └── README.md                      Entrada general al proyecto
 ```
 
-No existe carpeta `database/`, modelo Eloquent ni autenticación. Las capas `Domain`, `Application` e `Infrastructure` se crearán cuando el primer caso de uso las necesite; no se mantienen carpetas vacías ni abstracciones especulativas.
+No existe carpeta `database/`, modelo Eloquent ni autenticación. RF-01 y RF-02 utilizan `Application` e `Infrastructure`; la capa `Domain` se creará únicamente cuando aparezcan reglas de normalización o procesamiento propias del dominio.
 
 ## Instalación y ejecución
 
@@ -124,9 +141,18 @@ Después se adaptará el despliegue a un hosting cuyas capacidades todavía est�
 
 ## Configuración
 
-`.env.example` contiene únicamente valores locales sin secretos y utiliza sesiones/caché en memoria y cola síncrona. El `.env` real está ignorado por Git.
+`.env.example` contiene únicamente valores locales sin secretos. Usa una sesión cifrada en cookie solo para CSRF, caché en memoria y cola síncrona. El `.env` real está ignorado por Git.
 
-Las variables de Shopify, la versión de Admin GraphQL API y el mecanismo definitivo para mantener resultados temporales siguen pendientes. Las futuras credenciales deberán permanecer fuera del código, documentación, logs y archivos versionados.
+Los límites compartidos por RF-01 y RF-02 se centralizan en:
+
+```dotenv
+NACEX_CSV_MAX_SIZE_KB=5120
+NACEX_CSV_MAX_ROWS=1000
+```
+
+`APP_URL` y `ASSET_URL` deben apuntar a `http://localhost/gestor-seguimientos/public` en XAMPP para que las rutas y los módulos dinámicos de Vite resuelvan la subcarpeta correcta.
+
+Las variables de Shopify y la versión de Admin GraphQL API siguen pendientes. Las futuras credenciales deberán permanecer fuera del código, documentación, logs y archivos versionados.
 
 ## Desarrollo
 
