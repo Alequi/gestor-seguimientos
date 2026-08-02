@@ -2,7 +2,7 @@
 
 ## Estado
 
-RF-01, RF-02 y RF-03 implementados y verificados. La aplicación permite cargar, validar estructuralmente, leer un CSV como texto y conservar como candidatas únicamente las filas `Solicitada`, sin almacenarlo ni consultar Shopify.
+RF-01 a RF-04 implementados y verificados. La aplicación permite cargar, validar estructuralmente y leer un CSV como texto, conservar únicamente las filas `Solicitada` y deduplicarlas de forma segura, sin almacenarlo ni consultar Shopify.
 
 ## Alcance de RF-01
 
@@ -53,7 +53,23 @@ Para decidir la equivalencia del estado se ignoran:
 
 El estado original de una fila candidata se mantiene sin modificar en su DTO; la representación normalizada solo se utiliza dentro de la regla de dominio. Los demás estados se excluyen de `rows` y no avanzan hacia RF-04 ni requisitos posteriores.
 
-`rowCount` conserva el total de filas no vacías del archivo y `requestedRowCount` informa cuántas filas `Solicitada` quedan antes de deduplicar. Por tanto, `rows` contiene exactamente `requestedRowCount` elementos. RF-03 no deduplica, no normaliza agencia o código postal y no construye URLs.
+`rowCount` conserva el total de filas no vacías del archivo y `requestedRowCount` informa cuántas filas `Solicitada` quedan antes de deduplicar. En la salida propia de RF-03 ambas cantidades coinciden; el contrato HTTP completo deja de exigir esa igualdad cuando RF-04 aparta repeticiones o conflictos. RF-03 no deduplica, no normaliza agencia o código postal y no construye URLs.
+
+## Alcance de RF-04
+
+RF-04 se ejecuta después del filtro de estado y antes de la normalización general de RF-05. La identidad temporal de cada expedición se construye con:
+
+```text
+agencia ajustada a cuatro dígitos + albarán
+```
+
+Para construir esa identidad se eliminan únicamente los espacios exteriores de agencia y albarán, y la agencia se completa con ceros a la izquierda hasta cuatro caracteres. Así, `304 + 14910300` y `0304 + 14910300` se consideran la misma expedición. Los ceros del albarán se conservan y no se aplica ninguna conversión numérica.
+
+Esta transformación se limita a la comparación: los seis valores originales del DTO no se modifican. Si varias filas de una identidad tienen exactamente la misma fecha, referencia y código postal, se conserva la primera según el orden del CSV. Las diferencias de formato del estado no crean conflicto porque todas las filas ya han superado RF-03.
+
+Si las filas de una misma identidad difieren en fecha, referencia o código postal, ninguna avanza automáticamente. El grupo completo se devuelve en `duplicateConflicts`, identificado por la agencia de cuatro dígitos y el albarán, para su revisión manual.
+
+`requestedRowCount` mantiene el número de filas `Solicitada` antes de deduplicar, `processableRowCount` cuenta las expediciones deduplicadas que pueden continuar y `duplicateConflictCount` cuenta grupos contradictorios. `rows` contiene exclusivamente las candidatas procesables.
 
 ## Cabeceras obligatorias
 
@@ -93,6 +109,8 @@ La petición requiere el token CSRF normal de Laravel.
     "sizeInBytes": 2048,
     "rowCount": 25,
     "requestedRowCount": 17,
+    "processableRowCount": 16,
+    "duplicateConflictCount": 0,
     "encoding": "UTF-8",
     "headers": ["Ag. Origen", "Albarán", "Fecha alta", "Referencia", "CP Ent.", "Estado"],
     "rows": [
@@ -104,12 +122,31 @@ La petición requiere el token CSRF normal de Laravel.
         "postalCode": "08019",
         "status": "Solicitada"
       }
-    ]
+    ],
+    "duplicateConflicts": []
   }
 }
 ```
 
-Un CSV estructuralmente válido sin filas `Solicitada` responde igualmente con código HTTP `200`, `requestedRowCount: 0` y `rows: []`. La interfaz informa que no se realizará ningún cambio en Shopify.
+Un CSV estructuralmente válido sin filas `Solicitada` responde igualmente con código HTTP `200`, `requestedRowCount: 0`, `processableRowCount: 0` y las listas vacías. La interfaz informa que no se realizará ningún cambio en Shopify.
+
+Un grupo contradictorio se excluye de `rows` y conserva sus filas originales únicamente en memoria:
+
+```json
+{
+  "duplicateConflictCount": 1,
+  "duplicateConflicts": [
+    {
+      "originAgency": "0304",
+      "trackingNumber": "14910300",
+      "rows": [
+        { "originAgency": "304", "trackingNumber": "14910300", "registrationDate": "01/08/2026", "reference": "Ana García", "postalCode": "08019", "status": "Solicitada" },
+        { "originAgency": "0304", "trackingNumber": "14910300", "registrationDate": "01/08/2026", "reference": "Ana García", "postalCode": "28019", "status": "SOLICITADA" }
+      ]
+    }
+  ]
+}
+```
 
 ### Respuesta no válida
 
@@ -127,10 +164,12 @@ Código HTTP `422`, siguiendo el contrato de validación de Laravel:
 ## Responsabilidades
 
 - `UploadNacexCsvRequest`: valida presencia, subida, extensión, tipo y tamaño.
-- `ValidateNacexCsv`: coordina la lectura y conserva únicamente las filas candidatas.
+- `ValidateNacexCsv`: coordina la lectura, el filtro de estado y la deduplicación.
+- `DeduplicateNacexCsvRows`: agrupa las candidatas por identidad, conserva una repetición compatible y aparta los grupos contradictorios.
 - `NacexCsvInspector`: contrato de aplicación para inspeccionar y leer el archivo sin conocer Laravel.
 - `NacexCsvRow`: DTO inmutable que mantiene las seis columnas requeridas como cadenas.
 - `NacexShipmentStatus`: regla de dominio que normaliza exclusivamente el estado para decidir si es `Solicitada`.
+- `NacexShipmentIdentity`: regla de dominio que construye la identidad temporal mediante agencia ajustada y albarán sin modificar el DTO.
 - Implementación de infraestructura NACEX: detecta codificación, lee cabeceras y filas con el parser CSV nativo y adapta cada fila al DTO.
 - Controlador HTTP: transforma errores del caso de uso en una respuesta `422` segura.
 - Vue: mantiene el archivo y el resultado solo en memoria, presenta feedback y no aplica reglas críticas por sí solo.
@@ -142,13 +181,14 @@ Código HTTP `422`, siguiendo el contrato de validación de Laravel:
 - La cookie de sesión cifrada se utiliza solo para CSRF y mensajes operativos.
 - El CSV, sus filas y el resultado nunca se guardan en sesión, cookies, `localStorage` o `sessionStorage`.
 - Las filas viajan en la respuesta JSON y permanecen únicamente dentro del resultado reactivo en memoria de Vue.
+- El composable adapta de forma defensiva una respuesta RF-03 que todavía no incluya las métricas de RF-04: considera sus filas filtradas como procesables y asume cero conflictos. Esta compatibilidad evita que un build frontend nuevo deje la pantalla en blanco durante una actualización local desacompasada; el comportamiento completo de RF-04 requiere que backend y frontend estén desplegados juntos.
 - El estado de Vue se pierde al recargar o cerrar la página.
 
 ## Interfaz
 
 La pantalla incluye selector de archivo, área de arrastrar y soltar, botón `Analizar CSV`, columnas esperadas y aviso de ausencia de historial. Proporciona estados normal, arrastre, archivo seleccionado, validación, éxito, ausencia de candidatas y error.
 
-El resultado muestra filas totales y candidatas antes de deduplicar, además de codificación y tamaño. Cuando no existen filas `Solicitada`, utiliza un aviso accesible con el mensaje aprobado y confirma que no se realizará ningún cambio en Shopify. Las filas todavía no se muestran porque la tabla de análisis corresponde a requisitos posteriores.
+El resultado muestra filas totales, solicitadas antes de deduplicar, procesables, grupos contradictorios, codificación y tamaño. Los conflictos se presentan mediante agencia, albarán y número de filas afectadas; sus datos completos permanecen en memoria para la futura revisión. Cuando no existen filas `Solicitada`, utiliza un aviso accesible y confirma que no se realizará ningún cambio en Shopify. La tabla general de análisis sigue perteneciendo a requisitos posteriores.
 
 No se añade librería visual ni de movimiento. Se utilizan componentes Vue y CSS propios. Las únicas transiciones son feedback funcional breve de color y pulsación; deben respetar teclado, tacto y `prefers-reduced-motion`.
 
@@ -166,6 +206,10 @@ No se añade librería visual ni de movimiento. Se utilizan componentes Vue y CS
 - Conservación del estado original en las filas candidatas.
 - CSV válido sin candidatas, con respuesta vacía no errónea.
 - Conteo separado de filas totales y candidatas antes de RF-04.
+- Deduplicación de agencias equivalentes como `304` y `0304`, con espacios exteriores ASCII o Unicode.
+- Conservación textual de la primera fila cuando las repeticiones son compatibles.
+- Conservación diferenciada de albaranes o agencias realmente distintos.
+- Exclusión completa y señalización de grupos que contradicen fecha, referencia o código postal.
 - Archivo ausente, extensión incorrecta o tamaño superior a 5 MB.
 - Separador incorrecto.
 - Archivo sin datos.
@@ -183,3 +227,9 @@ Con RF-03, la suite completa alcanza 30 tests y 115 assertions. También pasan P
 La navegación real en XAMPP comprobó un CSV de cuatro filas con dos candidatas y otro de dos filas sin candidatas. Se verificaron el texto y las cuatro métricas de ambos estados, el aviso ámbar de resultado vacío, la ausencia de errores de consola y la vista móvil a 390 × 844 sin desbordamiento horizontal. La interfaz no añade animaciones nuevas.
 
 Durante la verificación real se confirmó que Windows/PHP puede identificar un CSV textual como `text/plain`; por eso el transporte acepta ese MIME únicamente junto con extensión `.csv` y una inspección estructural posterior.
+
+Con RF-04, la suite completa alcanza 38 tests y 161 assertions. También pasan Pint, el typecheck de Vue, el build de producción, la validación estricta de Composer y las auditorías de Composer y npm sin vulnerabilidades conocidas.
+
+La verificación visual real utilizó un CSV sintético con cinco filas `Solicitada`: dos repeticiones compatibles de `304`/`0304`, un grupo de dos filas con código postal contradictorio y una expedición independiente. La interfaz mostró cinco solicitadas, dos procesables y un conflicto; identificó el grupo `0304 + 14910301`, lo dejó fuera del procesamiento automático y no produjo errores de consola. En escritorio y a 390 × 844 no hubo desbordamiento horizontal. RF-04 no añade animaciones.
+
+También se reprodujo en XAMPP una actualización desacompasada donde el build RF-04 recibía una respuesta RF-03. La lectura directa de una métrica ausente provocaba un error de renderizado. El adaptador defensivo mantiene visible el resultado antiguo sin inventar conflictos y una respuesta sin los campos mínimos muestra un error operativo en vez de desmontar la interfaz.

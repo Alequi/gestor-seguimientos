@@ -10,9 +10,12 @@ export interface CsvValidationResult {
     sizeInBytes: number;
     rowCount: number;
     requestedRowCount: number;
+    processableRowCount: number;
+    duplicateConflictCount: number;
     encoding: string;
     headers: string[];
     rows: NacexCsvRow[];
+    duplicateConflicts: NacexCsvDuplicateConflict[];
 }
 
 export interface NacexCsvRow {
@@ -22,6 +25,12 @@ export interface NacexCsvRow {
     reference: string;
     postalCode: string;
     status: string;
+}
+
+export interface NacexCsvDuplicateConflict {
+    originAgency: string;
+    trackingNumber: string;
+    rows: NacexCsvRow[];
 }
 
 export interface CsvValidationResponse {

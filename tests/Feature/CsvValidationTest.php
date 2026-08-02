@@ -45,6 +45,8 @@ CSV;
             ->assertJsonPath('data.fileName', 'expediciones.csv')
             ->assertJsonPath('data.rowCount', 1)
             ->assertJsonPath('data.requestedRowCount', 1)
+            ->assertJsonPath('data.processableRowCount', 1)
+            ->assertJsonPath('data.duplicateConflictCount', 0)
             ->assertJsonPath('data.encoding', 'UTF-8')
             ->assertJsonPath('data.headers.0', 'Ag. Origen')
             ->assertJsonPath('data.rows.0.originAgency', '0304')
@@ -73,6 +75,7 @@ CSV;
             ->assertOk()
             ->assertJsonPath('data.rowCount', 4)
             ->assertJsonPath('data.requestedRowCount', 2)
+            ->assertJsonPath('data.processableRowCount', 2)
             ->assertJsonCount(2, 'data.rows')
             ->assertJsonPath('data.rows.0.trackingNumber', '0014910301')
             ->assertJsonPath('data.rows.0.status', ' SOLICITADA ')
@@ -95,7 +98,56 @@ CSV;
             ->assertOk()
             ->assertJsonPath('data.rowCount', 2)
             ->assertJsonPath('data.requestedRowCount', 0)
+            ->assertJsonPath('data.processableRowCount', 0)
             ->assertJsonCount(0, 'data.rows');
+    }
+
+    public function test_requested_rows_are_deduplicated_by_normalized_agency_and_tracking_number(): void
+    {
+        $csv = implode("\n", [
+            'Ag. Origen;Albarán;Fecha alta;Referencia;CP Ent.;Estado',
+            '304;14910300;01/08/2026;Ana García;08019;Solicitada',
+            ' 0304 ; 14910300 ;01/08/2026;Ana García;08019; SOLICITADA ',
+            '0304;14910301;01/08/2026;Bea Muñoz;08020;Solicitada',
+            '0304;14910301;02/08/2026;Otra referencia;28020;En tránsito',
+        ])."\n";
+
+        $this->postJson(route('csv.validate'), [
+            'csv' => $this->csvFile($csv),
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.rowCount', 4)
+            ->assertJsonPath('data.requestedRowCount', 3)
+            ->assertJsonPath('data.processableRowCount', 2)
+            ->assertJsonPath('data.duplicateConflictCount', 0)
+            ->assertJsonCount(2, 'data.rows')
+            ->assertJsonPath('data.rows.0.originAgency', '304')
+            ->assertJsonPath('data.rows.0.trackingNumber', '14910300')
+            ->assertJsonPath('data.rows.1.trackingNumber', '14910301');
+    }
+
+    public function test_conflicting_duplicates_are_excluded_and_returned_for_review(): void
+    {
+        $csv = implode("\n", [
+            'Ag. Origen;Albarán;Fecha alta;Referencia;CP Ent.;Estado',
+            '304;14910300;01/08/2026;Ana García;08019;Solicitada',
+            '0304;14910300;01/08/2026;Ana García;28019;SOLICITADA',
+        ])."\n";
+
+        $this->postJson(route('csv.validate'), [
+            'csv' => $this->csvFile($csv),
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.requestedRowCount', 2)
+            ->assertJsonPath('data.processableRowCount', 0)
+            ->assertJsonPath('data.duplicateConflictCount', 1)
+            ->assertJsonCount(0, 'data.rows')
+            ->assertJsonCount(1, 'data.duplicateConflicts')
+            ->assertJsonPath('data.duplicateConflicts.0.originAgency', '0304')
+            ->assertJsonPath('data.duplicateConflicts.0.trackingNumber', '14910300')
+            ->assertJsonCount(2, 'data.duplicateConflicts.0.rows')
+            ->assertJsonPath('data.duplicateConflicts.0.rows.0.postalCode', '08019')
+            ->assertJsonPath('data.duplicateConflicts.0.rows.1.postalCode', '28019');
     }
 
     public function test_a_csv_detected_as_plain_text_can_be_validated(): void

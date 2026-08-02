@@ -11,6 +11,7 @@ final readonly class ValidateNacexCsv
 {
     public function __construct(
         private NacexCsvInspector $inspector,
+        private DeduplicateNacexCsvRows $deduplicateRows,
     ) {}
 
     public function handle(
@@ -25,6 +26,12 @@ final readonly class ValidateNacexCsv
                 ->isRequested(),
         ));
 
-        return $result->withRows($requestedRows);
+        $deduplicated = $this->deduplicateRows->handle($requestedRows);
+
+        return $result->withCandidateRows(
+            rows: $deduplicated->rows,
+            requestedRowCount: count($requestedRows),
+            duplicateConflicts: $deduplicated->conflicts,
+        );
     }
 }

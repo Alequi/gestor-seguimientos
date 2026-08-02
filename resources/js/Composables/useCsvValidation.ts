@@ -81,7 +81,18 @@ export function useCsvValidation(config: CsvUploadConfig) {
                 return;
             }
 
-            validationResult.value = (payload as CsvValidationResponse).data;
+            const result = normalizeValidationResult(
+                (payload as Partial<CsvValidationResponse>).data,
+            );
+
+            if (result === null) {
+                errors.value = [
+                    'El servidor ha devuelto una respuesta de validación incompleta. Recarga la página e inténtalo de nuevo.',
+                ];
+                return;
+            }
+
+            validationResult.value = result;
         } catch {
             errors.value = [
                 'No se ha podido conectar con el servidor. Comprueba que XAMPP siga activo e inténtalo de nuevo.',
@@ -117,4 +128,42 @@ async function parseJsonResponse(response: Response): Promise<unknown> {
     }
 
     return response.json();
+}
+
+function normalizeValidationResult(
+    result: Partial<CsvValidationResult> | undefined,
+): CsvValidationResult | null {
+    if (
+        !result ||
+        typeof result.fileName !== 'string' ||
+        typeof result.sizeInBytes !== 'number' ||
+        typeof result.rowCount !== 'number' ||
+        typeof result.requestedRowCount !== 'number' ||
+        typeof result.encoding !== 'string' ||
+        !Array.isArray(result.headers) ||
+        !Array.isArray(result.rows)
+    ) {
+        return null;
+    }
+
+    return {
+        fileName: result.fileName,
+        sizeInBytes: result.sizeInBytes,
+        rowCount: result.rowCount,
+        requestedRowCount: result.requestedRowCount,
+        processableRowCount:
+            typeof result.processableRowCount === 'number'
+                ? result.processableRowCount
+                : result.rows.length,
+        duplicateConflictCount:
+            typeof result.duplicateConflictCount === 'number'
+                ? result.duplicateConflictCount
+                : 0,
+        encoding: result.encoding,
+        headers: result.headers,
+        rows: result.rows,
+        duplicateConflicts: Array.isArray(result.duplicateConflicts)
+            ? result.duplicateConflicts
+            : [],
+    };
 }

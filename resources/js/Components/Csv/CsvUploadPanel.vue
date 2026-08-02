@@ -134,36 +134,85 @@ function formatFileSize(bytes: number): string {
                     v-if="validationResult"
                     class="feedback feedback-result"
                     :class="
-                        validationResult.requestedRowCount > 0
+                        validationResult.requestedRowCount > 0 &&
+                        validationResult.duplicateConflictCount === 0
                             ? 'feedback-success'
                             : 'feedback-warning'
                     "
                     role="status"
                 >
                     <div>
-                        <strong v-if="validationResult.requestedRowCount > 0">
-                            Expediciones candidatas encontradas
+                        <strong v-if="validationResult.duplicateConflictCount > 0">
+                            Hay expediciones que requieren revisión
+                        </strong>
+                        <strong v-else-if="validationResult.processableRowCount > 0">
+                            Expediciones deduplicadas correctamente
                         </strong>
                         <strong v-else>Sin expediciones solicitadas</strong>
-                        <p v-if="validationResult.requestedRowCount > 0">
-                            La estructura es válida y los campos se han leído como texto sin
-                            perder caracteres ni ceros iniciales. El siguiente paso trabajará solo
-                            con las filas cuyo estado es «Solicitada».
+                        <p
+                            v-if="
+                                validationResult.duplicateConflictCount > 0 &&
+                                validationResult.processableRowCount > 0
+                            "
+                        >
+                            Las filas con la misma agencia y albarán que contienen datos
+                            contradictorios se han apartado y no se procesarán automáticamente.
+                            Las demás expediciones pueden continuar.
+                        </p>
+                        <p v-else-if="validationResult.duplicateConflictCount > 0">
+                            Todas las filas solicitadas pertenecen a grupos con datos
+                            contradictorios. Se han apartado para revisión y no se procesará ninguna
+                            automáticamente.
+                        </p>
+                        <p v-else-if="validationResult.processableRowCount > 0">
+                            La estructura es válida. Las repeticiones de una misma expedición se
+                            han reducido a una sola candidata sin modificar sus valores originales.
                         </p>
                         <p v-else>
                             No se han encontrado filas con estado «Solicitada». No se realizará
                             ningún cambio en Shopify.
                         </p>
                     </div>
+                    <ul
+                        v-if="validationResult.duplicateConflictCount > 0"
+                        class="duplicate-conflicts"
+                        aria-label="Expediciones duplicadas con datos contradictorios"
+                    >
+                        <li
+                            v-for="conflict in validationResult.duplicateConflicts"
+                            :key="`${conflict.originAgency}-${conflict.trackingNumber}`"
+                        >
+                            <strong>
+                                Agencia {{ conflict.originAgency }} · Albarán
+                                {{ conflict.trackingNumber }}
+                            </strong>
+                            <span>
+                                {{ conflict.rows.length.toLocaleString('es-ES') }} filas para
+                                revisar
+                            </span>
+                        </li>
+                    </ul>
                     <dl>
                         <div>
                             <dt>Filas totales</dt>
                             <dd>{{ validationResult.rowCount.toLocaleString('es-ES') }}</dd>
                         </div>
                         <div>
-                            <dt>Candidatas</dt>
+                            <dt>Solicitadas</dt>
                             <dd>
                                 {{ validationResult.requestedRowCount.toLocaleString('es-ES') }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt>Procesables</dt>
+                            <dd>
+                                {{ validationResult.processableRowCount.toLocaleString('es-ES') }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt>Conflictos</dt>
+                            <dd>
+                                {{ validationResult.duplicateConflictCount.toLocaleString('es-ES') }}
                             </dd>
                         </div>
                         <div>
@@ -443,6 +492,36 @@ function formatFileSize(bytes: number): string {
     line-height: 1.5;
 }
 
+.duplicate-conflicts {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.duplicate-conflicts li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 12px;
+    border: 1px solid rgb(132 109 57 / 22%);
+    border-radius: 9px;
+    background: rgb(255 255 255 / 72%);
+}
+
+.duplicate-conflicts strong {
+    color: #5f4815;
+    font-size: 0.875rem;
+}
+
+.duplicate-conflicts span {
+    flex: 0 0 auto;
+    color: #755817;
+    font-size: 0.8125rem;
+}
+
 .feedback-result dl {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -628,6 +707,12 @@ function formatFileSize(bytes: number): string {
 
     .feedback-result dl {
         grid-template-columns: 1fr;
+    }
+
+    .duplicate-conflicts li {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 3px;
     }
 }
 
