@@ -4,7 +4,7 @@
 
 Norma aprobada para todo el frontend. La integración técnica de Inertia 3, Vue 3, TypeScript y Vite está implementada, junto con una página mínima de comprobación.
 
-RF-01 define el sistema visual inicial mediante CSS propio: tipografía del sistema, superficies neutras, azul para acciones y foco, verde para validación y rojo para errores. RF-02 conserva la misma interacción y amplía el contrato TypeScript para mantener en memoria las filas leídas como texto. No utiliza librería de componentes ni de movimiento.
+RF-01 define el sistema visual inicial mediante CSS propio: tipografía del sistema, superficies neutras, azul para acciones y foco, verde para validación y rojo para errores. RF-02 conserva la misma interacción y amplía el contrato TypeScript para mantener en memoria las filas leídas como texto. RF-03 añade el conteo de candidatas y un estado ámbar cuando no existen filas `Solicitada`. No utiliza librería de componentes ni de movimiento.
 
 ## Fuente obligatoria
 
@@ -140,7 +140,7 @@ resources/
 ├── js/Components/Csv/      Panel presentacional de carga
 ├── js/Composables/         Estado y petición de validación
 ├── js/Pages/Home.vue       Página de importación
-├── js/Types/               Contratos TypeScript de RF-01 y RF-02
+├── js/Types/               Contratos TypeScript de RF-01 a RF-03
 ├── js/vite-env.d.ts        Tipos de Vite
 └── views/app.blade.php     Contenedor Blade exclusivo para Inertia
 ```
@@ -150,3 +150,5 @@ Blade se limita al documento raíz requerido por Inertia. No contiene componente
 La interfaz RF-01 utiliza feedback de pulsación solo en punteros precisos, transiciones breves de propiedades concretas y desactiva el movimiento bajo `prefers-reduced-motion`. Los estados de éxito y error usan `role="status"` y `role="alert"`, respectivamente.
 
 RF-02 no introduce una tabla ni controles adicionales. El panel confirma en el estado de éxito que la lectura conservó texto y ceros iniciales, mientras el composable retiene el resultado completo —incluidas las filas— únicamente en memoria. La futura presentación y densidad de una tabla siguen fuera de este requisito.
+
+RF-03 muestra cuatro métricas estáticas —filas totales, candidatas, codificación y tamaño— y diferencia mediante texto, color y semántica el resultado con candidatas del resultado vacío. No se anima la aparición porque no aporta una relación espacial ni mejora una interacción frecuente. El aviso vacío usa `role="status"`, no bloquea una nueva carga y muestra expresamente que Shopify no será modificado.

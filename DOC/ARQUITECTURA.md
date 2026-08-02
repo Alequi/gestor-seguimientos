@@ -2,7 +2,7 @@
 
 ## Estado
 
-La base técnica y la importación inicial están implementadas. Laravel, Inertia, Vue y TypeScript están integrados y verificados; RF-01 valida la estructura del CSV y RF-02 adapta sus filas a DTO inmutables de aplicación sin aplicar todavía reglas de dominio.
+La base técnica y la importación inicial están implementadas. Laravel, Inertia, Vue y TypeScript están integrados y verificados; RF-01 valida la estructura, RF-02 adapta las filas a DTO inmutables y RF-03 filtra las candidatas mediante una regla de dominio.
 
 ## Stack aprobado
 
@@ -65,7 +65,9 @@ app/
 
 Esta estructura no autoriza a crear carpetas vacías ni abstracciones especulativas. Cada elemento se incorpora cuando existe un caso de uso que lo necesita.
 
-RF-01 creó un caso de uso en `Application/Actions`, su resultado inmutable en `Application/Data`, un contrato de inspección en `Application/Contracts` y la implementación nativa de lectura en `Infrastructure/Nacex/Csv`. RF-02 incorpora `NacexCsvRow` como DTO inmutable y hace que la infraestructura adapte por posición las seis columnas requeridas, siempre como cadenas. La capa HTTP contiene un controlador invocable y un `FormRequest`; no contiene parsing de CSV.
+RF-01 creó un caso de uso en `Application/Actions`, su resultado inmutable en `Application/Data`, un contrato de inspección en `Application/Contracts` y la implementación nativa de lectura en `Infrastructure/Nacex/Csv`. RF-02 incorpora `NacexCsvRow` como DTO inmutable y hace que la infraestructura adapte por posición las seis columnas requeridas, siempre como cadenas.
+
+RF-03 crea `Domain/Shipment/NacexShipmentStatus`. Esta clase encapsula la equivalencia con `Solicitada`; el caso de uso la aplica a las filas leídas y conserva separados el total del archivo y las candidatas. La infraestructura no conoce la regla de estado y la capa HTTP continúa limitada a transformar la petición y la respuesta.
 
 ## Estructura frontend
 

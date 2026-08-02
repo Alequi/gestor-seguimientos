@@ -2,7 +2,7 @@
 
 ## Estado
 
-RF-01 y RF-02 implementados y verificados. La aplicación permite cargar, validar estructuralmente y leer un CSV como texto sin almacenarlo ni consultar Shopify.
+RF-01, RF-02 y RF-03 implementados y verificados. La aplicación permite cargar, validar estructuralmente, leer un CSV como texto y conservar como candidatas únicamente las filas `Solicitada`, sin almacenarlo ni consultar Shopify.
 
 ## Alcance de RF-01
 
@@ -39,7 +39,21 @@ Todos los campos se mantienen como cadenas UTF-8. En concreto:
 - El lector respeta el entrecomillado CSV, incluidos los separadores `;` dentro de un campo.
 - Las columnas adicionales no forman parte del DTO de RF-02.
 
-RF-02 no recorta ni normaliza valores, no valida el formato individual de cada campo, no filtra por `Solicitada` y no elimina duplicados. Estas responsabilidades empiezan en RF-03 y RF-05; el valor leído se conserva para que las transformaciones posteriores sean explícitas y comprobables.
+RF-02 no recorta ni normaliza los valores originales y no valida el formato individual de cada campo. El valor leído se conserva para que las transformaciones posteriores sean explícitas y comprobables.
+
+## Alcance de RF-03
+
+El caso de uso filtra las filas leídas y devuelve como candidatas únicamente aquellas cuyo estado normalizado equivale a `Solicitada`.
+
+Para decidir la equivalencia del estado se ignoran:
+
+- Mayúsculas y minúsculas.
+- Espacios al principio y al final.
+- Espacios duplicados, tabulaciones y separadores Unicode equivalentes.
+
+El estado original de una fila candidata se mantiene sin modificar en su DTO; la representación normalizada solo se utiliza dentro de la regla de dominio. Los demás estados se excluyen de `rows` y no avanzan hacia RF-04 ni requisitos posteriores.
+
+`rowCount` conserva el total de filas no vacías del archivo y `requestedRowCount` informa cuántas filas `Solicitada` quedan antes de deduplicar. Por tanto, `rows` contiene exactamente `requestedRowCount` elementos. RF-03 no deduplica, no normaliza agencia o código postal y no construye URLs.
 
 ## Cabeceras obligatorias
 
@@ -78,6 +92,7 @@ La petición requiere el token CSRF normal de Laravel.
     "fileName": "expediciones.csv",
     "sizeInBytes": 2048,
     "rowCount": 25,
+    "requestedRowCount": 17,
     "encoding": "UTF-8",
     "headers": ["Ag. Origen", "Albarán", "Fecha alta", "Referencia", "CP Ent.", "Estado"],
     "rows": [
@@ -93,6 +108,8 @@ La petición requiere el token CSRF normal de Laravel.
   }
 }
 ```
+
+Un CSV estructuralmente válido sin filas `Solicitada` responde igualmente con código HTTP `200`, `requestedRowCount: 0` y `rows: []`. La interfaz informa que no se realizará ningún cambio en Shopify.
 
 ### Respuesta no válida
 
@@ -110,9 +127,10 @@ Código HTTP `422`, siguiendo el contrato de validación de Laravel:
 ## Responsabilidades
 
 - `UploadNacexCsvRequest`: valida presencia, subida, extensión, tipo y tamaño.
-- `ValidateNacexCsv`: representa el caso de uso de validación.
+- `ValidateNacexCsv`: coordina la lectura y conserva únicamente las filas candidatas.
 - `NacexCsvInspector`: contrato de aplicación para inspeccionar y leer el archivo sin conocer Laravel.
 - `NacexCsvRow`: DTO inmutable que mantiene las seis columnas requeridas como cadenas.
+- `NacexShipmentStatus`: regla de dominio que normaliza exclusivamente el estado para decidir si es `Solicitada`.
 - Implementación de infraestructura NACEX: detecta codificación, lee cabeceras y filas con el parser CSV nativo y adapta cada fila al DTO.
 - Controlador HTTP: transforma errores del caso de uso en una respuesta `422` segura.
 - Vue: mantiene el archivo y el resultado solo en memoria, presenta feedback y no aplica reglas críticas por sí solo.
@@ -128,7 +146,9 @@ Código HTTP `422`, siguiendo el contrato de validación de Laravel:
 
 ## Interfaz
 
-La pantalla incluye selector de archivo, área de arrastrar y soltar, botón `Analizar CSV`, columnas esperadas y aviso de ausencia de historial. Proporciona estados normal, arrastre, archivo seleccionado, validación, éxito y error. El éxito confirma que los campos se han leído como texto sin perder caracteres ni ceros iniciales; las filas todavía no se muestran porque la tabla de análisis corresponde a requisitos posteriores.
+La pantalla incluye selector de archivo, área de arrastrar y soltar, botón `Analizar CSV`, columnas esperadas y aviso de ausencia de historial. Proporciona estados normal, arrastre, archivo seleccionado, validación, éxito, ausencia de candidatas y error.
+
+El resultado muestra filas totales y candidatas antes de deduplicar, además de codificación y tamaño. Cuando no existen filas `Solicitada`, utiliza un aviso accesible con el mensaje aprobado y confirma que no se realizará ningún cambio en Shopify. Las filas todavía no se muestran porque la tabla de análisis corresponde a requisitos posteriores.
 
 No se añade librería visual ni de movimiento. Se utilizan componentes Vue y CSS propios. Las únicas transiciones son feedback funcional breve de color y pulsación; deben respetar teclado, tacto y `prefers-reduced-motion`.
 
@@ -141,6 +161,11 @@ No se añade librería visual ni de movimiento. Se utilizan componentes Vue y CS
 - Campos entrecomillados que contienen el separador `;`.
 - Agencia, código postal y albarán con ceros iniciales.
 - Albaranes largos y valores con notación científica literal sin conversión numérica.
+- Estado `Solicitada` canónico, en mayúsculas, minúsculas y con espacios ASCII o Unicode sobrantes.
+- Exclusión de estados diferentes como `En tránsito`, `Incidencia` y `Entregado`.
+- Conservación del estado original en las filas candidatas.
+- CSV válido sin candidatas, con respuesta vacía no errónea.
+- Conteo separado de filas totales y candidatas antes de RF-04.
 - Archivo ausente, extensión incorrecta o tamaño superior a 5 MB.
 - Separador incorrecto.
 - Archivo sin datos.
@@ -152,5 +177,9 @@ No se añade librería visual ni de movimiento. Se utilizan componentes Vue y CS
 RF-01 se comprobó mediante pruebas unitarias y Feature, typecheck de Vue, build de producción y navegación real en XAMPP. La prueba visual cubrió escritorio, móvil a 390 × 844 sin desbordamiento horizontal, selección mediante el control nativo, estado de carga, respuesta válida y error por columnas ausentes.
 
 Con RF-02, la suite completa alcanza 19 tests y 92 assertions. También pasan Pint, el typecheck de Vue, el build de producción, la validación estricta de Composer y las auditorías de Composer y npm sin vulnerabilidades conocidas. RF-02 conserva la interacción visual ya comprobada y únicamente amplía el texto del estado de éxito y el contrato de datos en memoria.
+
+Con RF-03, la suite completa alcanza 30 tests y 115 assertions. También pasan Pint, el typecheck de Vue, el build de producción y la validación estricta de Composer.
+
+La navegación real en XAMPP comprobó un CSV de cuatro filas con dos candidatas y otro de dos filas sin candidatas. Se verificaron el texto y las cuatro métricas de ambos estados, el aviso ámbar de resultado vacío, la ausencia de errores de consola y la vista móvil a 390 × 844 sin desbordamiento horizontal. La interfaz no añade animaciones nuevas.
 
 Durante la verificación real se confirmó que Windows/PHP puede identificar un CSV textual como `text/plain`; por eso el transporte acepta ese MIME únicamente junto con extensión `.csv` y una inspección estructural posterior.

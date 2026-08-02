@@ -130,18 +130,41 @@ function formatFileSize(bytes: number): string {
                     </ul>
                 </div>
 
-                <div v-if="validationResult" class="feedback feedback-success" role="status">
+                <div
+                    v-if="validationResult"
+                    class="feedback feedback-result"
+                    :class="
+                        validationResult.requestedRowCount > 0
+                            ? 'feedback-success'
+                            : 'feedback-warning'
+                    "
+                    role="status"
+                >
                     <div>
-                        <strong>CSV validado correctamente</strong>
-                        <p>
+                        <strong v-if="validationResult.requestedRowCount > 0">
+                            Expediciones candidatas encontradas
+                        </strong>
+                        <strong v-else>Sin expediciones solicitadas</strong>
+                        <p v-if="validationResult.requestedRowCount > 0">
                             La estructura es válida y los campos se han leído como texto sin
-                            perder caracteres ni ceros iniciales.
+                            perder caracteres ni ceros iniciales. El siguiente paso trabajará solo
+                            con las filas cuyo estado es «Solicitada».
+                        </p>
+                        <p v-else>
+                            No se han encontrado filas con estado «Solicitada». No se realizará
+                            ningún cambio en Shopify.
                         </p>
                     </div>
                     <dl>
                         <div>
-                            <dt>Filas</dt>
+                            <dt>Filas totales</dt>
                             <dd>{{ validationResult.rowCount.toLocaleString('es-ES') }}</dd>
+                        </div>
+                        <div>
+                            <dt>Candidatas</dt>
+                            <dd>
+                                {{ validationResult.requestedRowCount.toLocaleString('es-ES') }}
+                            </dd>
                         </div>
                         <div>
                             <dt>Codificación</dt>
@@ -398,41 +421,58 @@ function formatFileSize(bytes: number): string {
     padding-left: 20px;
 }
 
-.feedback-success {
+.feedback-result {
     display: grid;
     gap: 16px;
+}
+
+.feedback-success {
     border-color: #b9ddc6;
     color: #23623a;
     background: #f1faf4;
 }
 
-.feedback-success p {
+.feedback-warning {
+    border-color: #e8d49c;
+    color: #755817;
+    background: #fff9e8;
+}
+
+.feedback-result p {
     margin: 4px 0 0;
     line-height: 1.5;
 }
 
-.feedback-success dl {
+.feedback-result dl {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     margin: 0;
 }
 
-.feedback-success dl > div {
+.feedback-result dl > div {
     padding: 10px 12px;
     border-radius: 9px;
     background: rgb(255 255 255 / 72%);
 }
 
-.feedback-success dt {
+.feedback-result dt {
     color: #568068;
     font-size: 0.75rem;
 }
 
-.feedback-success dd {
+.feedback-result dd {
     margin: 3px 0 0;
     color: #194b2c;
     font-weight: 750;
+}
+
+.feedback-warning dt {
+    color: #846d39;
+}
+
+.feedback-warning dd {
+    color: #5f4815;
 }
 
 .primary-action {
@@ -586,7 +626,7 @@ function formatFileSize(bytes: number): string {
         padding: 22px 16px;
     }
 
-    .feedback-success dl {
+    .feedback-result dl {
         grid-template-columns: 1fr;
     }
 }

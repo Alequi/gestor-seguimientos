@@ -18,10 +18,26 @@ final readonly class NacexCsvValidationResult
     ) {}
 
     /**
+     * @param  list<NacexCsvRow>  $rows
+     */
+    public function withRows(array $rows): self
+    {
+        return new self(
+            fileName: $this->fileName,
+            sizeInBytes: $this->sizeInBytes,
+            rowCount: $this->rowCount,
+            encoding: $this->encoding,
+            headers: $this->headers,
+            rows: $rows,
+        );
+    }
+
+    /**
      * @return array{
      *     fileName: string,
      *     sizeInBytes: int,
      *     rowCount: int,
+     *     requestedRowCount: int,
      *     encoding: string,
      *     headers: list<string>,
      *     rows: list<array{
@@ -40,6 +56,7 @@ final readonly class NacexCsvValidationResult
             'fileName' => $this->fileName,
             'sizeInBytes' => $this->sizeInBytes,
             'rowCount' => $this->rowCount,
+            'requestedRowCount' => count($this->rows),
             'encoding' => $this->encoding,
             'headers' => $this->headers,
             'rows' => array_map(

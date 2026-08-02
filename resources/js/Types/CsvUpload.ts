@@ -9,6 +9,7 @@ export interface CsvValidationResult {
     fileName: string;
     sizeInBytes: number;
     rowCount: number;
+    requestedRowCount: number;
     encoding: string;
     headers: string[];
     rows: NacexCsvRow[];

@@ -4,7 +4,7 @@ Herramienta interna para importar expediciones desde un CSV de NACEX, localizar 
 
 ## Estado del proyecto
 
-La arquitectura y la base técnica están implementadas. RF-01 permite seleccionar, arrastrar y validar estructuralmente un CSV de NACEX; RF-02 lee sus seis campos requeridos como texto y los mantiene temporalmente en memoria Vue. Todavía no se consulta ni modifica Shopify.
+La arquitectura y la base técnica están implementadas. RF-01 permite seleccionar, arrastrar y validar estructuralmente un CSV de NACEX; RF-02 lee sus seis campos requeridos como texto; y RF-03 conserva como candidatas únicamente las filas cuyo estado equivale a `Solicitada`. Todavía no se consulta ni modifica Shopify.
 
 ## Funcionalidad disponible
 
@@ -17,6 +17,9 @@ La arquitectura y la base técnica están implementadas. RF-01 permite seleccion
 - Lectura de cada fila respetando el entrecomillado CSV y los `;` incluidos dentro de campos.
 - Conservación de tildes, `ñ`, `ü`, ceros iniciales y albaranes largos sin conversión numérica.
 - Transporte temporal de agencia, albarán, fecha, referencia, código postal y estado como cadenas UTF-8.
+- Filtrado de `Solicitada` sin distinguir mayúsculas, minúsculas ni espacios sobrantes.
+- Conteo separado de filas totales y candidatas antes de deduplicar.
+- Aviso seguro y accesible cuando el CSV no contiene expediciones candidatas.
 - Feedback accesible con nombre, tamaño, codificación y filas validadas.
 - Procesamiento temporal sin guardar el archivo ni sus datos.
 
@@ -80,6 +83,7 @@ Todo cambio o nueva funcionalidad debe actualizar la documentación relacionada,
 ├── .agents/                       Documentación operativa para agentes
 ├── app/                           Backend Laravel
 │   ├── Application/               Casos de uso, contratos y DTO de archivo y fila NACEX
+│   ├── Domain/Shipment/            Reglas de dominio de expediciones y estados
 │   ├── Http/                      Controladores, requests y middleware
 │   └── Infrastructure/Nacex/      Lectura e inspección del CSV
 ├── bootstrap/                     Arranque de Laravel
@@ -102,7 +106,7 @@ Todo cambio o nueva funcionalidad debe actualizar la documentación relacionada,
 └── README.md                      Entrada general al proyecto
 ```
 
-No existe carpeta `database/`, modelo Eloquent ni autenticación. RF-01 y RF-02 utilizan `Application` e `Infrastructure`; la capa `Domain` se creará únicamente cuando aparezcan reglas de normalización o procesamiento propias del dominio.
+No existe carpeta `database/`, modelo Eloquent ni autenticación. RF-01 y RF-02 utilizan `Application` e `Infrastructure`; RF-03 incorpora `Domain/Shipment` para encapsular la regla del estado `Solicitada`.
 
 ## Instalación y ejecución
 
@@ -143,7 +147,7 @@ Después se adaptará el despliegue a un hosting cuyas capacidades todavía est�
 
 `.env.example` contiene únicamente valores locales sin secretos. Usa una sesión cifrada en cookie solo para CSRF, caché en memoria y cola síncrona. El `.env` real está ignorado por Git.
 
-Los límites compartidos por RF-01 y RF-02 se centralizan en:
+Los límites compartidos por RF-01 a RF-03 se centralizan en:
 
 ```dotenv
 NACEX_CSV_MAX_SIZE_KB=5120
