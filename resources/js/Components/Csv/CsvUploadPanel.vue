@@ -166,7 +166,9 @@ function formatFileSize(bytes: number): string {
                         </p>
                         <p v-else-if="validationResult.processableRowCount > 0">
                             La estructura es válida. Las repeticiones de una misma expedición se
-                            han reducido a una sola candidata sin modificar sus valores originales.
+                            han reducido a una sola candidata. Agencia, código postal y referencia
+                            de comparación ya están normalizados, y la URL de seguimiento está
+                            preparada sin modificar la referencia original.
                         </p>
                         <p v-else>
                             No se han encontrado filas con estado «Solicitada». No se realizará

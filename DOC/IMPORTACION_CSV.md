@@ -2,7 +2,7 @@
 
 ## Estado
 
-RF-01 a RF-04 implementados y verificados. La aplicación permite cargar, validar estructuralmente y leer un CSV como texto, conservar únicamente las filas `Solicitada` y deduplicarlas de forma segura, sin almacenarlo ni consultar Shopify.
+RF-01 a RF-06 implementados. La aplicación permite cargar, validar estructuralmente y leer un CSV como texto, conservar únicamente las filas `Solicitada`, deduplicarlas de forma segura, normalizar las candidatas y construir su URL de seguimiento NACEX, sin almacenarlo ni consultar Shopify.
 
 ## Alcance de RF-01
 
@@ -71,6 +71,35 @@ Si las filas de una misma identidad difieren en fecha, referencia o código post
 
 `requestedRowCount` mantiene el número de filas `Solicitada` antes de deduplicar, `processableRowCount` cuenta las expediciones deduplicadas que pueden continuar y `duplicateConflictCount` cuenta grupos contradictorios. `rows` contiene exclusivamente las candidatas procesables.
 
+## Alcance de RF-05
+
+RF-05 se ejecuta después de RF-04 y solo transforma las candidatas deduplicadas que pueden continuar. La fila fuente inmutable se conserva para no perder los valores leídos del CSV. Cada candidata preparada expone:
+
+- Agencia ajustada a cuatro dígitos con ceros a la izquierda.
+- Código postal ajustado a cinco dígitos con ceros a la izquierda.
+- Referencia original sin modificar.
+- Referencia adicional normalizada para el futuro matching.
+
+La referencia normalizada se convierte a minúsculas, elimina las tildes y convierte cualquier secuencia de signos o separadores en un único espacio. La `ñ` se conserva y no se convierte en `n`. Por ejemplo:
+
+```text
+PEÑA-MUÑOZ, Álvarez → peña muñoz alvarez
+```
+
+Por decisión de producto, los CSV no contendrán agencias o códigos postales vacíos, no numéricos o demasiado largos. RF-05 no introduce una clasificación de errores no solicitada para esos casos. La normalización tampoco modifica el albarán, la fecha, el estado ni construye todavía la URL de seguimiento; esa última responsabilidad pertenece a RF-06.
+
+## Alcance de RF-06
+
+RF-06 se ejecuta después de RF-05 y añade a cada candidata procesable una URL de seguimiento NACEX construida únicamente con su agencia normalizada y su albarán textual:
+
+```text
+https://www.nacex.es/seguimientoDetalle.do?agencia_origen={AGENCIA}&numero_albaran={ALBARAN}&estado=4&internacional=0&externo=N
+```
+
+La agencia ya llega ajustada a cuatro dígitos por RF-05. El albarán conserva exactamente su valor textual, incluidos los ceros iniciales; solo se codifican ambos valores al insertarlos en la query. La URL base y los parámetros constantes `estado=4`, `internacional=0` y `externo=N` están centralizados en `config/nacex.php`.
+
+Esta fase no abre la URL, no consulta NACEX ni Shopify y no modifica ningún sistema externo. Los grupos contradictorios apartados por RF-04 no reciben URL porque siguen excluidos del procesamiento automático.
+
 ## Cabeceras obligatorias
 
 Las cabeceras requeridas son:
@@ -119,8 +148,10 @@ La petición requiere el token CSRF normal de Laravel.
         "trackingNumber": "0014910300",
         "registrationDate": "01/08/2026",
         "reference": "Peña Muñoz",
+        "normalizedReference": "peña muñoz",
         "postalCode": "08019",
-        "status": "Solicitada"
+        "status": "Solicitada",
+        "trackingUrl": "https://www.nacex.es/seguimientoDetalle.do?agencia_origen=0304&numero_albaran=0014910300&estado=4&internacional=0&externo=N"
       }
     ],
     "duplicateConflicts": []
@@ -164,12 +195,16 @@ Código HTTP `422`, siguiendo el contrato de validación de Laravel:
 ## Responsabilidades
 
 - `UploadNacexCsvRequest`: valida presencia, subida, extensión, tipo y tamaño.
-- `ValidateNacexCsv`: coordina la lectura, el filtro de estado y la deduplicación.
+- `ValidateNacexCsv`: coordina la lectura, el filtro de estado, la deduplicación, la normalización y la construcción de URLs.
 - `DeduplicateNacexCsvRows`: agrupa las candidatas por identidad, conserva una repetición compatible y aparta los grupos contradictorios.
+- `NormalizeNacexCsvRows`: transforma las filas deduplicadas en candidatas tipadas sin modificar sus DTO fuente.
+- `BuildNacexTrackingUrls`: añade la URL de seguimiento a cada candidata normalizada sin alterar sus datos.
 - `NacexCsvInspector`: contrato de aplicación para inspeccionar y leer el archivo sin conocer Laravel.
 - `NacexCsvRow`: DTO inmutable que mantiene las seis columnas requeridas como cadenas.
 - `NacexShipmentStatus`: regla de dominio que normaliza exclusivamente el estado para decidir si es `Solicitada`.
 - `NacexShipmentIdentity`: regla de dominio que construye la identidad temporal mediante agencia ajustada y albarán sin modificar el DTO.
+- `NacexShipmentNormalizer`: centraliza la agencia, el código postal y la referencia normalizados; la identidad RF-04 reutiliza su regla de agencia.
+- `NacexTrackingUrlBuilder`: encapsula el formato exacto de la URL y codifica los valores de la query a partir de constantes configuradas.
 - Implementación de infraestructura NACEX: detecta codificación, lee cabeceras y filas con el parser CSV nativo y adapta cada fila al DTO.
 - Controlador HTTP: transforma errores del caso de uso en una respuesta `422` segura.
 - Vue: mantiene el archivo y el resultado solo en memoria, presenta feedback y no aplica reglas críticas por sí solo.
@@ -188,7 +223,7 @@ Código HTTP `422`, siguiendo el contrato de validación de Laravel:
 
 La pantalla incluye selector de archivo, área de arrastrar y soltar, botón `Analizar CSV`, columnas esperadas y aviso de ausencia de historial. Proporciona estados normal, arrastre, archivo seleccionado, validación, éxito, ausencia de candidatas y error.
 
-El resultado muestra filas totales, solicitadas antes de deduplicar, procesables, grupos contradictorios, codificación y tamaño. Los conflictos se presentan mediante agencia, albarán y número de filas afectadas; sus datos completos permanecen en memoria para la futura revisión. Cuando no existen filas `Solicitada`, utiliza un aviso accesible y confirma que no se realizará ningún cambio en Shopify. La tabla general de análisis sigue perteneciendo a requisitos posteriores.
+El resultado muestra filas totales, solicitadas antes de deduplicar, procesables, grupos contradictorios, codificación y tamaño. Los conflictos se presentan mediante agencia, albarán y número de filas afectadas; sus datos completos permanecen en memoria para la futura revisión. El éxito confirma además que agencia, código postal y referencia de comparación ya están normalizados sin alterar la referencia original y que la URL de seguimiento está preparada para cada candidata procesable. Cuando no existen filas `Solicitada`, utiliza un aviso accesible y confirma que no se realizará ningún cambio en Shopify. La tabla general de análisis sigue perteneciendo a requisitos posteriores.
 
 No se añade librería visual ni de movimiento. Se utilizan componentes Vue y CSS propios. Las únicas transiciones son feedback funcional breve de color y pulsación; deben respetar teclado, tacto y `prefers-reduced-motion`.
 
@@ -210,6 +245,13 @@ No se añade librería visual ni de movimiento. Se utilizan componentes Vue y CS
 - Conservación textual de la primera fila cuando las repeticiones son compatibles.
 - Conservación diferenciada de albaranes o agencias realmente distintos.
 - Exclusión completa y señalización de grupos que contradicen fecha, referencia o código postal.
+- Agencia de dos, tres o cuatro dígitos ajustada a cuatro posiciones.
+- Código postal de cuatro o cinco dígitos ajustado a cinco posiciones.
+- Referencias en minúsculas, sin tildes y con los signos convertidos en espacios.
+- Conservación de `ñ` y de la referencia fuente sin modificar.
+- Construcción exacta de la URL NACEX con agencia de cuatro dígitos y albarán textual.
+- Conservación de ceros iniciales y codificación segura de los valores de la query.
+- Ausencia de URLs para grupos contradictorios excluidos por RF-04.
 - Archivo ausente, extensión incorrecta o tamaño superior a 5 MB.
 - Separador incorrecto.
 - Archivo sin datos.
@@ -233,3 +275,11 @@ Con RF-04, la suite completa alcanza 38 tests y 161 assertions. También pasan P
 La verificación visual real utilizó un CSV sintético con cinco filas `Solicitada`: dos repeticiones compatibles de `304`/`0304`, un grupo de dos filas con código postal contradictorio y una expedición independiente. La interfaz mostró cinco solicitadas, dos procesables y un conflicto; identificó el grupo `0304 + 14910301`, lo dejó fuera del procesamiento automático y no produjo errores de consola. En escritorio y a 390 × 844 no hubo desbordamiento horizontal. RF-04 no añade animaciones.
 
 También se reprodujo en XAMPP una actualización desacompasada donde el build RF-04 recibía una respuesta RF-03. La lectura directa de una métrica ausente provocaba un error de renderizado. El adaptador defensivo mantiene visible el resultado antiguo sin inventar conflictos y una respuesta sin los campos mínimos muestra un error operativo en vez de desmontar la interfaz.
+
+Con RF-05, la suite completa alcanza 49 tests y 186 assertions. También pasan Pint, el typecheck de Vue, el build de producción, la validación estricta de Composer y las auditorías de Composer y npm sin vulnerabilidades conocidas. Las pruebas cubren agencia y código postal con y sin cero inicial, eliminación de tildes, conservación de `ñ`, conversión de guiones, apóstrofes y otros signos en espacios, conservación de la fila fuente y aplicación de la normalización únicamente después de deduplicar.
+
+La verificación real utilizó una instancia local aislada y un CSV sintético con agencia `304`, código postal `8019` y referencia `PEÑA-MUÑOZ, Álvarez`. La respuesta mantuvo una candidata procesable y la interfaz confirmó la normalización sin alterar la referencia original. El estado fue legible en escritorio y a 390 × 844, sin desbordamiento horizontal, y una carga limpia del build definitivo no produjo errores ni avisos de consola. RF-05 no incorpora animaciones nuevas.
+
+Con RF-06, la suite completa alcanza 52 tests y 193 assertions. También pasan Pint, el typecheck de Vue, el build de producción, la validación estricta de Composer y las auditorías de Composer y npm sin vulnerabilidades conocidas. Las pruebas cubren el formato exacto de la URL, el uso de la agencia normalizada, la conservación del albarán y sus ceros iniciales, la codificación de valores de query y la incorporación de la URL sin alterar la candidata RF-05.
+
+La verificación real de RF-06 reutilizó una instancia local aislada y un CSV sintético con agencia `304` y albarán `0014910300`. La interfaz mostró una candidata procesable y confirmó que su URL de seguimiento estaba preparada. A 390 × 844, el ancho del documento permaneció dentro del viewport y no hubo mensajes de consola. Después se cerró la instancia temporal y se restauró el build local normal. RF-06 no incorpora controles ni animaciones nuevas.

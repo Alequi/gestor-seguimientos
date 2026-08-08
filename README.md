@@ -4,7 +4,7 @@ Herramienta interna para importar expediciones desde un CSV de NACEX, localizar 
 
 ## Estado del proyecto
 
-La arquitectura y la base técnica están implementadas. RF-01 permite seleccionar, arrastrar y validar estructuralmente un CSV de NACEX; RF-02 lee sus seis campos como texto; RF-03 conserva las filas `Solicitada`; y RF-04 deduplica agencia y albarán, apartando para revisión los grupos contradictorios. Todavía no se consulta ni modifica Shopify.
+La arquitectura y la base técnica están implementadas. RF-01 permite seleccionar, arrastrar y validar estructuralmente un CSV de NACEX; RF-02 lee sus seis campos como texto; RF-03 conserva las filas `Solicitada`; RF-04 deduplica agencia y albarán, apartando para revisión los grupos contradictorios; RF-05 normaliza las candidatas sin perder sus valores fuente; y RF-06 construye su URL de seguimiento NACEX. Todavía no se consulta ni modifica Shopify.
 
 ## Funcionalidad disponible
 
@@ -22,6 +22,9 @@ La arquitectura y la base técnica están implementadas. RF-01 permite seleccion
 - Deduplicación mediante agencia ajustada a cuatro dígitos y albarán, recortando espacios exteriores solo para comparar.
 - Conservación de una única candidata cuando las repeticiones contienen los mismos datos.
 - Exclusión segura y aviso de revisión cuando una misma identidad presenta fechas, referencias o códigos postales contradictorios.
+- Agencia normalizada a cuatro dígitos y código postal a cinco, siempre como texto.
+- Referencia de comparación en minúsculas, sin tildes y con los signos convertidos en espacios, conservando `ñ` y la referencia original.
+- URL de seguimiento NACEX preparada con agencia normalizada y albarán textual, conservando ceros iniciales.
 - Aviso seguro y accesible cuando el CSV no contiene expediciones candidatas.
 - Feedback accesible con nombre, tamaño, codificación y filas validadas.
 - Procesamiento temporal sin guardar el archivo ni sus datos.
@@ -109,7 +112,7 @@ Todo cambio o nueva funcionalidad debe actualizar la documentación relacionada,
 └── README.md                      Entrada general al proyecto
 ```
 
-No existe carpeta `database/`, modelo Eloquent ni autenticación. RF-01 y RF-02 utilizan `Application` e `Infrastructure`; RF-03 incorpora la regla del estado `Solicitada`; y RF-04 añade la identidad temporal de expedición y un caso de uso de deduplicación con conflictos tipados.
+No existe carpeta `database/`, modelo Eloquent ni autenticación. RF-01 y RF-02 utilizan `Application` e `Infrastructure`; RF-03 incorpora la regla del estado `Solicitada`; RF-04 añade la identidad temporal de expedición y un caso de uso de deduplicación con conflictos tipados; RF-05 incorpora una normalización de dominio centralizada y candidatas que conservan su DTO fuente; y RF-06 encapsula la construcción de URLs en dominio y las incorpora desde un caso de uso de aplicación.
 
 ## Instalación y ejecución
 
@@ -152,12 +155,14 @@ Después se adaptará el despliegue a un hosting cuyas capacidades todavía est�
 
 `.env.example` contiene únicamente valores locales sin secretos. Usa una sesión cifrada en cookie solo para CSRF, caché en memoria y cola síncrona. El `.env` real está ignorado por Git.
 
-Los límites compartidos por RF-01 a RF-04 se centralizan en:
+Los límites compartidos por RF-01 a RF-06 se centralizan en:
 
 ```dotenv
 NACEX_CSV_MAX_SIZE_KB=5120
 NACEX_CSV_MAX_ROWS=1000
 ```
+
+El formato del seguimiento NACEX y sus parámetros constantes se mantienen en `config/nacex.php`; no requieren secretos ni variables de entorno.
 
 `APP_URL` y `ASSET_URL` deben apuntar a `http://localhost/gestor-seguimientos/public` en XAMPP para que las rutas y los módulos dinámicos de Vite resuelvan la subcarpeta correcta.
 

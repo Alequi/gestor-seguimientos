@@ -23,8 +23,10 @@ export interface NacexCsvRow {
     trackingNumber: string;
     registrationDate: string;
     reference: string;
+    normalizedReference: string;
     postalCode: string;
     status: string;
+    trackingUrl: string;
 }
 
 export interface NacexCsvDuplicateConflict {

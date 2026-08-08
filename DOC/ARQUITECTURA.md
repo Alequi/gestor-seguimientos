@@ -2,7 +2,7 @@
 
 ## Estado
 
-La base técnica y la importación inicial están implementadas. Laravel, Inertia, Vue y TypeScript están integrados; RF-01 valida la estructura, RF-02 adapta las filas a DTO inmutables, RF-03 filtra las candidatas y RF-04 las deduplica sin automatizar grupos contradictorios.
+La base técnica y la importación inicial están implementadas. Laravel, Inertia, Vue y TypeScript están integrados; RF-01 valida la estructura, RF-02 adapta las filas a DTO inmutables, RF-03 filtra las candidatas, RF-04 las deduplica sin automatizar grupos contradictorios, RF-05 crea representaciones normalizadas sin perder la fila fuente y RF-06 añade la URL de seguimiento NACEX.
 
 ## Stack aprobado
 
@@ -70,6 +70,10 @@ RF-01 creó un caso de uso en `Application/Actions`, su resultado inmutable en `
 RF-03 crea `Domain/Shipment/NacexShipmentStatus`. Esta clase encapsula la equivalencia con `Solicitada`; el caso de uso la aplica a las filas leídas y conserva separados el total del archivo y las candidatas. La infraestructura no conoce la regla de estado y la capa HTTP continúa limitada a transformar la petición y la respuesta.
 
 RF-04 añade `Domain/Shipment/NacexShipmentIdentity` para construir la clave temporal mediante agencia ajustada a cuatro dígitos y albarán. `Application/Actions/DeduplicateNacexCsvRows` agrupa los DTO después del filtro de estado y devuelve un resultado tipado con candidatas únicas y conflictos. Los DTO de conflicto conservan todas las filas originales para revisión; el dominio no depende de los DTO de aplicación y la infraestructura continúa limitada al parsing.
+
+RF-05 añade `Domain/Shipment/NacexShipmentNormalizer` como única fuente de normalización para agencia, código postal y referencia. `Application/Actions/NormalizeNacexCsvRows` transforma únicamente las filas deduplicadas en `NacexCsvCandidate`, que mantiene el DTO fuente y expone los valores preparados para requisitos posteriores. `NacexShipmentIdentity` reutiliza la misma normalización de agencia, evitando reglas duplicadas.
+
+RF-06 añade `Domain/Shipment/NacexTrackingUrlBuilder`, configurado desde `config/nacex.php` mediante el contenedor, para encapsular el formato exacto y la codificación de la URL. `Application/Actions/BuildNacexTrackingUrls` la incorpora únicamente a las candidatas normalizadas y devuelve `NacexShipmentCandidate`, que conserva la candidata RF-05 junto a su URL. La infraestructura de CSV y la interfaz HTTP no conocen las reglas de construcción, y esta fase no realiza llamadas externas.
 
 ## Estructura frontend
 

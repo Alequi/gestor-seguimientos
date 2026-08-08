@@ -19,7 +19,7 @@ Antes de iniciar cualquier cambio o nueva funcionalidad, se debe leer este índi
 | [Arquitectura y estructura](ARQUITECTURA.md) | Stack aprobado, separación de responsabilidades, estructura prevista y normas de Clean Code. | Vigente |
 | [Frontend y diseño de interacción](FRONTEND.md) | Criterios obligatorios de interfaz, componentes, movimiento, rendimiento y accesibilidad basados en `$emil-design-eng`. | Vigente |
 | [Entorno de desarrollo](ENTORNO_DESARROLLO.md) | Versiones instaladas, preparación de XAMPP, puesta en marcha, verificaciones y copias de respaldo. | Vigente |
-| [Importación de CSV NACEX](IMPORTACION_CSV.md) | Contrato, validaciones, lectura textual, filtrado, deduplicación segura, conflictos, interfaz y límites de la carga de archivos NACEX (RF-01 a RF-04). | Vigente |
+| [Importación de CSV NACEX](IMPORTACION_CSV.md) | Contrato, validaciones, lectura textual, filtrado, deduplicación segura, normalización, URLs de seguimiento, conflictos, interfaz y límites de la carga de archivos NACEX (RF-01 a RF-06). | Vigente |
 
 ## Decisiones confirmadas posteriores a los documentos de producto
 
@@ -43,6 +43,8 @@ Estas decisiones deben incorporarse al documento temático correspondiente cuand
 - La sesión cifrada en cookie se utiliza únicamente para CSRF y mensajes operativos; nunca contendrá el CSV, datos de clientes ni resultados del análisis.
 - Los datos devueltos por la validación o el análisis permanecerán solo en memoria en Vue y se perderán al recargar la página.
 - RF-04 compara expediciones mediante agencia ajustada a cuatro dígitos y albarán, recortando solo espacios exteriores. Si una misma identidad presenta fechas, referencias o códigos postales contradictorios, todo el grupo queda fuera del procesamiento automático y se señala para revisión.
+- RF-05 completa la agencia a cuatro dígitos y el código postal a cinco. La referencia de comparación pasa a minúsculas, pierde tildes y convierte los signos en espacios, pero conserva `ñ`; la referencia original no se modifica. Los CSV no contendrán agencias o códigos postales vacíos, no numéricos o demasiado largos.
+- RF-06 construye para cada candidata procesable la URL exacta de seguimiento NACEX con la agencia normalizada y el albarán textual. La URL base y los valores constantes `estado=4`, `internacional=0` y `externo=N` se centralizan en configuración.
 
 ## Decisiones pendientes
 

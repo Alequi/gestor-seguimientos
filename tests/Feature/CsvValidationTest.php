@@ -53,8 +53,13 @@ CSV;
             ->assertJsonPath('data.rows.0.trackingNumber', '0014910300')
             ->assertJsonPath('data.rows.0.registrationDate', '01/08/2026')
             ->assertJsonPath('data.rows.0.reference', 'Peña Muñoz')
+            ->assertJsonPath('data.rows.0.normalizedReference', 'peña muñoz')
             ->assertJsonPath('data.rows.0.postalCode', '08019')
-            ->assertJsonPath('data.rows.0.status', 'Solicitada');
+            ->assertJsonPath('data.rows.0.status', 'Solicitada')
+            ->assertJsonPath(
+                'data.rows.0.trackingUrl',
+                'https://www.nacex.es/seguimientoDetalle.do?agencia_origen=0304&numero_albaran=0014910300&estado=4&internacional=0&externo=N',
+            );
     }
 
     public function test_only_requested_rows_are_returned_as_candidates(): void
@@ -121,7 +126,7 @@ CSV;
             ->assertJsonPath('data.processableRowCount', 2)
             ->assertJsonPath('data.duplicateConflictCount', 0)
             ->assertJsonCount(2, 'data.rows')
-            ->assertJsonPath('data.rows.0.originAgency', '304')
+            ->assertJsonPath('data.rows.0.originAgency', '0304')
             ->assertJsonPath('data.rows.0.trackingNumber', '14910300')
             ->assertJsonPath('data.rows.1.trackingNumber', '14910301');
     }
@@ -148,6 +153,28 @@ CSV;
             ->assertJsonCount(2, 'data.duplicateConflicts.0.rows')
             ->assertJsonPath('data.duplicateConflicts.0.rows.0.postalCode', '08019')
             ->assertJsonPath('data.duplicateConflicts.0.rows.1.postalCode', '28019');
+    }
+
+    public function test_processable_rows_are_normalized_after_deduplication(): void
+    {
+        $csv = <<<'CSV'
+Ag. Origen;Albarán;Fecha alta;Referencia;CP Ent.;Estado
+304;14910300;01/08/2026;  PEÑA-MUÑOZ, Álvarez  ;8019;Solicitada
+CSV;
+
+        $this->postJson(route('csv.validate'), [
+            'csv' => $this->csvFile($csv),
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.rows.0.originAgency', '0304')
+            ->assertJsonPath('data.rows.0.postalCode', '08019')
+            ->assertJsonPath('data.rows.0.reference', '  PEÑA-MUÑOZ, Álvarez  ')
+            ->assertJsonPath('data.rows.0.normalizedReference', 'peña muñoz alvarez')
+            ->assertJsonPath('data.rows.0.trackingNumber', '14910300')
+            ->assertJsonPath(
+                'data.rows.0.trackingUrl',
+                'https://www.nacex.es/seguimientoDetalle.do?agencia_origen=0304&numero_albaran=14910300&estado=4&internacional=0&externo=N',
+            );
     }
 
     public function test_a_csv_detected_as_plain_text_can_be_validated(): void

@@ -7,6 +7,7 @@ final readonly class NacexCsvValidationResult
     /**
      * @param  list<string>  $headers
      * @param  list<NacexCsvRow>  $rows
+     * @param  list<NacexShipmentCandidate>  $candidateRows
      * @param  list<NacexCsvDuplicateConflict>  $duplicateConflicts
      */
     public function __construct(
@@ -16,15 +17,16 @@ final readonly class NacexCsvValidationResult
         public string $encoding,
         public array $headers,
         public array $rows,
+        public array $candidateRows = [],
         public int $requestedRowCount = 0,
         public array $duplicateConflicts = [],
     ) {}
 
     /**
-     * @param  list<NacexCsvRow>  $rows
+     * @param  list<NacexShipmentCandidate>  $candidateRows
      */
     public function withCandidateRows(
-        array $rows,
+        array $candidateRows,
         int $requestedRowCount,
         array $duplicateConflicts,
     ): self {
@@ -34,7 +36,8 @@ final readonly class NacexCsvValidationResult
             rowCount: $this->rowCount,
             encoding: $this->encoding,
             headers: $this->headers,
-            rows: $rows,
+            rows: $this->rows,
+            candidateRows: $candidateRows,
             requestedRowCount: $requestedRowCount,
             duplicateConflicts: $duplicateConflicts,
         );
@@ -55,8 +58,10 @@ final readonly class NacexCsvValidationResult
      *         trackingNumber: string,
      *         registrationDate: string,
      *         reference: string,
+     *         normalizedReference: string,
      *         postalCode: string,
-     *         status: string
+     *         status: string,
+     *         trackingUrl: string
      *     }>,
      *     duplicateConflicts: list<array{
      *         originAgency: string,
@@ -79,13 +84,13 @@ final readonly class NacexCsvValidationResult
             'sizeInBytes' => $this->sizeInBytes,
             'rowCount' => $this->rowCount,
             'requestedRowCount' => $this->requestedRowCount,
-            'processableRowCount' => count($this->rows),
+            'processableRowCount' => count($this->candidateRows),
             'duplicateConflictCount' => count($this->duplicateConflicts),
             'encoding' => $this->encoding,
             'headers' => $this->headers,
             'rows' => array_map(
-                static fn (NacexCsvRow $row): array => $row->toArray(),
-                $this->rows,
+                static fn (NacexShipmentCandidate $row): array => $row->toArray(),
+                $this->candidateRows,
             ),
             'duplicateConflicts' => array_map(
                 static fn (NacexCsvDuplicateConflict $conflict): array => $conflict->toArray(),

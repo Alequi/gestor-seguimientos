@@ -12,7 +12,7 @@ final readonly class NacexShipmentIdentity
     public static function from(string $originAgency, string $trackingNumber): self
     {
         return new self(
-            originAgency: str_pad(self::trimExteriorSpacing($originAgency), 4, '0', STR_PAD_LEFT),
+            originAgency: NacexShipmentNormalizer::originAgency($originAgency),
             trackingNumber: self::trimExteriorSpacing($trackingNumber),
         );
     }

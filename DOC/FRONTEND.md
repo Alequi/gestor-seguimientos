@@ -4,7 +4,7 @@
 
 Norma aprobada para todo el frontend. La integración técnica de Inertia 3, Vue 3, TypeScript y Vite está implementada, junto con una página mínima de comprobación.
 
-RF-01 define el sistema visual inicial mediante CSS propio: tipografía del sistema, superficies neutras, azul para acciones y foco, verde para validación y rojo para errores. RF-02 conserva la misma interacción y amplía el contrato TypeScript para mantener en memoria las filas leídas como texto. RF-03 añade el conteo de candidatas y un estado ámbar cuando no existen filas `Solicitada`. RF-04 diferencia filas solicitadas, expediciones procesables y grupos contradictorios, que se muestran en un aviso ámbar identificable. No utiliza librería de componentes ni de movimiento.
+RF-01 define el sistema visual inicial mediante CSS propio: tipografía del sistema, superficies neutras, azul para acciones y foco, verde para validación y rojo para errores. RF-02 conserva la misma interacción y amplía el contrato TypeScript para mantener en memoria las filas leídas como texto. RF-03 añade el conteo de candidatas y un estado ámbar cuando no existen filas `Solicitada`. RF-04 diferencia filas solicitadas, expediciones procesables y grupos contradictorios, que se muestran en un aviso ámbar identificable. RF-05 amplía el contrato de cada candidata con la referencia normalizada y RF-06 con la URL de seguimiento; ambos se confirman en el mismo feedback estático. No utiliza librería de componentes ni de movimiento.
 
 ## Fuente obligatoria
 
@@ -140,7 +140,7 @@ resources/
 ├── js/Components/Csv/      Panel presentacional de carga
 ├── js/Composables/         Estado y petición de validación
 ├── js/Pages/Home.vue       Página de importación
-├── js/Types/               Contratos TypeScript de RF-01 a RF-04
+├── js/Types/               Contratos TypeScript de RF-01 a RF-06
 ├── js/vite-env.d.ts        Tipos de Vite
 └── views/app.blade.php     Contenedor Blade exclusivo para Inertia
 ```
@@ -156,3 +156,7 @@ RF-03 muestra cuatro métricas estáticas —filas totales, candidatas, codifica
 RF-04 amplía el mismo bloque estático con métricas de solicitadas, procesables y conflictos. Cuando existe un grupo contradictorio, el aviso enumera su agencia normalizada, albarán y número de filas afectadas, explica que no se procesará automáticamente y conserva `role="status"`. No se incorpora tabla general, interacción ni animación; la lista se adapta a móvil sin desbordamiento.
 
 El composable normaliza el límite HTTP antes de publicar el resultado al componente. Si durante una actualización local recibe todavía el contrato RF-03, deriva las procesables de sus filas y usa cero conflictos; si faltan campos básicos, presenta un error operativo. El template no debe acceder directamente a propiedades opcionales de una respuesta sin adaptar, porque un error de renderizado ocultaría el formulario completo.
+
+RF-05 no añade controles, tablas ni animaciones. El aviso de éxito existente aclara que agencia, código postal y referencia de comparación están normalizados sin modificar la referencia original. Las candidatas completas, incluida `normalizedReference`, continúan solo en memoria para los requisitos posteriores.
+
+RF-06 amplía el contrato de cada candidata con `trackingUrl`. La URL permanece solo en memoria y todavía no se abre ni se presenta como acción, porque la tabla y las operaciones pertenecen a requisitos posteriores. El aviso estático confirma que ya está preparada; no se incorporan controles, transiciones ni animaciones nuevas.

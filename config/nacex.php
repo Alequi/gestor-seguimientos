@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'tracking' => [
+        'base_url' => 'https://www.nacex.es/seguimientoDetalle.do',
+        'status' => '4',
+        'international' => '0',
+        'external' => 'N',
+    ],
     'csv' => [
         'delimiter' => ';',
         'max_size_kilobytes' => (int) env('NACEX_CSV_MAX_SIZE_KB', 5120),
