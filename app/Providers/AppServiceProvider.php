@@ -3,8 +3,13 @@
 namespace App\Providers;
 
 use App\Application\Contracts\NacexCsvInspector;
+use App\Domain\Matching\OrderDateCompatibility;
 use App\Domain\Shipment\NacexTrackingUrlBuilder;
 use App\Infrastructure\Nacex\Csv\NativeNacexCsvInspector;
+use App\Infrastructure\Shopify\ShopifyAdminGraphqlClient;
+use App\Infrastructure\Shopify\ShopifyClientCredentialsTokenProvider;
+use App\Infrastructure\Shopify\ShopifyStoreEndpoint;
+use DateTimeZone;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -14,6 +19,40 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(
+            ShopifyStoreEndpoint::class,
+            fn (): ShopifyStoreEndpoint => new ShopifyStoreEndpoint(
+                shop: (string) config('shopify.shop'),
+                apiVersion: (string) config('shopify.api_version'),
+            ),
+        );
+
+        $this->app->singleton(
+            ShopifyClientCredentialsTokenProvider::class,
+            fn (): ShopifyClientCredentialsTokenProvider => new ShopifyClientCredentialsTokenProvider(
+                endpoint: $this->app->make(ShopifyStoreEndpoint::class),
+                clientId: (string) config('shopify.client_id'),
+                clientSecret: (string) config('shopify.client_secret'),
+            ),
+        );
+
+        $this->app->singleton(
+            ShopifyAdminGraphqlClient::class,
+            fn (): ShopifyAdminGraphqlClient => new ShopifyAdminGraphqlClient(
+                endpoint: $this->app->make(ShopifyStoreEndpoint::class),
+                tokens: $this->app->make(ShopifyClientCredentialsTokenProvider::class),
+            ),
+        );
+
+        $this->app->singleton(
+            OrderDateCompatibility::class,
+            fn (): OrderDateCompatibility => new OrderDateCompatibility(
+                daysBefore: (int) config('nacex.order_date.days_before'),
+                daysAfter: (int) config('nacex.order_date.days_after'),
+                timeZone: new DateTimeZone((string) config('nacex.order_date.time_zone')),
+            ),
+        );
+
         $this->app->singleton(
             NacexCsvInspector::class,
             fn (): NativeNacexCsvInspector => new NativeNacexCsvInspector(

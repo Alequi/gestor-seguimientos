@@ -2,7 +2,7 @@
 
 ## Estado
 
-La base técnica y la importación inicial están implementadas. Laravel, Inertia, Vue y TypeScript están integrados; RF-01 valida la estructura, RF-02 adapta las filas a DTO inmutables, RF-03 filtra las candidatas, RF-04 las deduplica sin automatizar grupos contradictorios, RF-05 crea representaciones normalizadas sin perder la fila fuente y RF-06 añade la URL de seguimiento NACEX.
+La base técnica y la importación inicial están implementadas. Laravel, Inertia, Vue y TypeScript están integrados; RF-01 valida la estructura, RF-02 adapta las filas a DTO inmutables, RF-03 filtra las candidatas, RF-04 las deduplica sin automatizar grupos contradictorios, RF-05 crea representaciones normalizadas sin perder la fila fuente y RF-06 añade la URL de seguimiento NACEX. De RF-07 están implementadas la regla temporal y la infraestructura de autenticación y transporte Admin GraphQL; aún no existe búsqueda de pedidos conectada al flujo.
 
 ## Stack aprobado
 
@@ -75,6 +75,10 @@ RF-05 añade `Domain/Shipment/NacexShipmentNormalizer` como única fuente de nor
 
 RF-06 añade `Domain/Shipment/NacexTrackingUrlBuilder`, configurado desde `config/nacex.php` mediante el contenedor, para encapsular el formato exacto y la codificación de la URL. `Application/Actions/BuildNacexTrackingUrls` la incorpora únicamente a las candidatas normalizadas y devuelve `NacexShipmentCandidate`, que conserva la candidata RF-05 junto a su URL. La infraestructura de CSV y la interfaz HTTP no conocen las reglas de construcción, y esta fase no realiza llamadas externas.
 
+La primera pieza de RF-07 es `Domain/Matching/OrderDateCompatibility`. Recibe la fecha de alta textual y la fecha de creación del pedido como instante; compara días de calendario en `Europe/Madrid` dentro de la ventana inclusiva configurada en `config/nacex.php`. Está registrada en el contenedor, pero todavía no la consume un caso de uso.
+
+La infraestructura de RF-07 añade `ShopifyStoreEndpoint` para limitar las solicitudes HTTPS al subdominio configurado y a la versión Admin GraphQL `2026-10`, `ShopifyClientCredentialsTokenProvider` para intercambiar las credenciales de la aplicación por un token temporal, y `ShopifyAdminGraphqlClient` para enviar operaciones GraphQL autenticadas. Se registran en el contenedor pero ningún controlador ni caso de uso los invoca todavía. Los fallos se encapsulan con mensajes seguros; no se guarda el token fuera de memoria. La búsqueda y adaptación de pedidos se añadirán detrás de un contrato de aplicación cuando se implementen.
+
 ## Estructura frontend
 
 Todo trabajo sobre esta capa debe comenzar leyendo `DOC/FRONTEND.md` y la skill `$emil-design-eng` completa.
@@ -136,12 +140,12 @@ Las llamadas a Shopify deben simularse en las pruebas. Ninguna prueba automatiza
 
 ## Configuración y secretos
 
-- El dominio y el token de la tienda se proporcionarán mediante variables de entorno.
+- El subdominio, ID y secreto de cliente de la aplicación instalada se proporcionan mediante variables de entorno; el token de acceso se obtiene en el backend y no se persiste.
 - Ninguna credencial se almacenará en Git, documentación, logs o frontend.
 - La versión de Shopify Admin API debe centralizarse en configuración.
 - Los parámetros constantes de la URL de NACEX deben centralizarse en configuración.
 
-Los nombres definitivos de variables y la versión inicial de la API se documentarán antes de implementar la integración.
+Los nombres de variables y la versión inicial se documentan en `DOC/BUSQUEDA_PEDIDOS.md` y `README.md`.
 
 ## Despliegue
 
@@ -155,7 +159,7 @@ La adaptación posterior a hosting se diseñará cuando se conozcan sus capacida
 
 ## Decisiones todavía necesarias
 
-- Versión inicial de Shopify Admin GraphQL API.
+- Diferencia máxima de longitud admitida para coincidencia inversa del nombre.
 - Estrategia de progreso durante la ejecución del lote.
 - Librería visual y sistema de estilos.
 - Capacidades y restricciones del hosting definitivo.

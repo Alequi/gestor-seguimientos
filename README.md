@@ -4,7 +4,7 @@ Herramienta interna para importar expediciones desde un CSV de NACEX, localizar 
 
 ## Estado del proyecto
 
-La arquitectura y la base técnica están implementadas. RF-01 permite seleccionar, arrastrar y validar estructuralmente un CSV de NACEX; RF-02 lee sus seis campos como texto; RF-03 conserva las filas `Solicitada`; RF-04 deduplica agencia y albarán, apartando para revisión los grupos contradictorios; RF-05 normaliza las candidatas sin perder sus valores fuente; y RF-06 construye su URL de seguimiento NACEX. Todavía no se consulta ni modifica Shopify.
+La arquitectura y la base técnica están implementadas. RF-01 permite seleccionar, arrastrar y validar estructuralmente un CSV de NACEX; RF-02 lee sus seis campos como texto; RF-03 conserva las filas `Solicitada`; RF-04 deduplica agencia y albarán, apartando para revisión los grupos contradictorios; RF-05 normaliza las candidatas sin perder sus valores fuente; y RF-06 construye su URL de seguimiento NACEX. De RF-07 están preparadas la regla temporal y la conexión backend autenticada con Shopify Admin GraphQL; la búsqueda de pedidos aún no está conectada al análisis. La aplicación todavía no consulta ni modifica Shopify desde su flujo visible.
 
 ## Funcionalidad disponible
 
@@ -25,6 +25,7 @@ La arquitectura y la base técnica están implementadas. RF-01 permite seleccion
 - Agencia normalizada a cuatro dígitos y código postal a cinco, siempre como texto.
 - Referencia de comparación en minúsculas, sin tildes y con los signos convertidos en espacios, conservando `ñ` y la referencia original.
 - URL de seguimiento NACEX preparada con agencia normalizada y albarán textual, conservando ceros iniciales.
+- Regla temporal de RF-07 y cliente backend para obtener un token temporal de Shopify y enviar operaciones Admin GraphQL `2026-10`, todavía sin uso en el análisis visible.
 - Aviso seguro y accesible cuando el CSV no contiene expediciones candidatas.
 - Feedback accesible con nombre, tamaño, codificación y filas validadas.
 - Procesamiento temporal sin guardar el archivo ni sus datos.
@@ -66,6 +67,7 @@ Documentos principales:
 - [Frontend y diseño de interacción](DOC/FRONTEND.md)
 - [Entorno de desarrollo](DOC/ENTORNO_DESARROLLO.md)
 - [Importación de CSV NACEX](DOC/IMPORTACION_CSV.md)
+- [Búsqueda de pedidos en Shopify](DOC/BUSQUEDA_PEDIDOS.md)
 - [Instrucciones para agentes](AGENTS.md)
 
 ## Stack aprobado
@@ -90,8 +92,10 @@ Todo cambio o nueva funcionalidad debe actualizar la documentación relacionada,
 ├── app/                           Backend Laravel
 │   ├── Application/               Casos de uso, contratos y DTO de archivo y fila NACEX
 │   ├── Domain/Shipment/            Reglas de dominio de expediciones y estados
+│   ├── Domain/Matching/            Regla temporal para futuros candidatos Shopify
 │   ├── Http/                      Controladores, requests y middleware
-│   └── Infrastructure/Nacex/      Lectura e inspección del CSV
+│   ├── Infrastructure/Nacex/      Lectura e inspección del CSV
+│   └── Infrastructure/Shopify/    Autenticación y transporte GraphQL
 ├── bootstrap/                     Arranque de Laravel
 ├── config/                        Configuración del framework
 ├── DOC/                           Documentación viva e índice
@@ -112,7 +116,7 @@ Todo cambio o nueva funcionalidad debe actualizar la documentación relacionada,
 └── README.md                      Entrada general al proyecto
 ```
 
-No existe carpeta `database/`, modelo Eloquent ni autenticación. RF-01 y RF-02 utilizan `Application` e `Infrastructure`; RF-03 incorpora la regla del estado `Solicitada`; RF-04 añade la identidad temporal de expedición y un caso de uso de deduplicación con conflictos tipados; RF-05 incorpora una normalización de dominio centralizada y candidatas que conservan su DTO fuente; y RF-06 encapsula la construcción de URLs en dominio y las incorpora desde un caso de uso de aplicación.
+No existe carpeta `database/`, modelo Eloquent ni autenticación de usuarios. RF-01 y RF-02 utilizan `Application` e `Infrastructure`; RF-03 incorpora la regla del estado `Solicitada`; RF-04 añade la identidad temporal de expedición y un caso de uso de deduplicación con conflictos tipados; RF-05 incorpora una normalización de dominio centralizada y candidatas que conservan su DTO fuente; RF-06 encapsula la construcción de URLs en dominio y las incorpora desde un caso de uso de aplicación; y RF-07 tiene una regla temporal aislada y un cliente Shopify todavía no conectado a un caso de uso.
 
 ## Instalación y ejecución
 
@@ -164,9 +168,23 @@ NACEX_CSV_MAX_ROWS=1000
 
 El formato del seguimiento NACEX y sus parámetros constantes se mantienen en `config/nacex.php`; no requieren secretos ni variables de entorno.
 
+La ventana temporal de RF-07 también está en `config/nacex.php`: desde 30 días antes hasta 7 días después de `Fecha alta`, incluidos ambos límites, comparando la fecha del pedido en `Europe/Madrid`. El CSV de referencia utiliza `DD/MM/AAAA`. La regla está preparada y probada, pero aún no se usa en el análisis visible.
+
 `APP_URL` y `ASSET_URL` deben apuntar a `http://localhost/gestor-seguimientos/public` en XAMPP para que las rutas y los módulos dinámicos de Vite resuelvan la subcarpeta correcta.
 
-Las variables de Shopify y la versión de Admin GraphQL API siguen pendientes. Las futuras credenciales deberán permanecer fuera del código, documentación, logs y archivos versionados.
+La versión inicial de Shopify Admin GraphQL API es `2026-10`. El usuario confirmó una aplicación existente en Dev Dashboard e instalada en una tienda de la misma organización. El backend prepara el flujo de credenciales de cliente y utiliza estas variables:
+
+```dotenv
+SHOPIFY_SHOP=
+SHOPIFY_CLIENT_ID=
+SHOPIFY_CLIENT_SECRET=
+```
+
+`SHOPIFY_SHOP` requiere solo el subdominio anterior a `.myshopify.com`, sin protocolo ni ruta. Los valores reales se guardan únicamente en el `.env` local ignorado por Git o como variables del entorno de ejecución; no se deben compartir por chat ni añadir a documentación o archivos versionados. El usuario ya los configuró localmente y se comprobó su presencia sin mostrarlos. El token obtenido se mantiene solo en memoria hasta poco antes de su caducidad. El cliente omite el campo GraphQL `variables` cuando está vacío, porque Shopify rechaza una lista vacía. El endpoint CSV actual no utiliza estas variables ni llama a Shopify. Faltan la consulta de pedidos, su análisis y la revalidación antes de cualquier cumplimiento.
+
+La conexión se comprobó con la consulta de solo lectura `shop { id }` a Shopify Admin GraphQL `2026-10`, sin mostrar el identificador ni el token. Esta prueba confirma autenticación y acceso básico a la API; **no confirma todavía los permisos de lectura de pedidos o de cumplimiento**.
+
+En XAMPP, un `.htaccess` en la raíz bloquea por HTTP `.env` y todas las rutas del proyecto salvo `public/`; se comprobaron respuestas `403` para `.env` y `200` para la aplicación. En otro servidor, debe publicarse solo `public/` y volver a verificar esta protección antes de configurar secretos.
 
 ## Desarrollo
 

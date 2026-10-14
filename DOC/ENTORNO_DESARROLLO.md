@@ -44,6 +44,8 @@ npm run build
 
 No se ejecuta ninguna migración: el proyecto no utiliza base de datos propia. El archivo `.env` es local, está ignorado por Git y no debe compartirse.
 
+Como el repositorio está dentro de `C:\xampp\htdocs` y Apache publica esa carpeta, ignorar `.env` en Git no basta para protegerlo por HTTP. El `.htaccess` de la raíz del proyecto deniega las rutas ajenas a `public/`, además de bloquear expresamente `.env` y sus variantes. Se verificó solo el código HTTP: antes de esta protección la ruta local de `.env` respondía `200`; ahora `.env`, `README.md`, `storage/logs/laravel.log` y `vendor/autoload.php` responden `403`, mientras `public/` sigue respondiendo `200`. No se descargó ni mostró el contenido de `.env`.
+
 ## Ejecución en XAMPP
 
 Con el servicio Apache iniciado, la compilación de producción se sirve en:
@@ -53,6 +55,8 @@ http://localhost/gestor-seguimientos/public
 ```
 
 `APP_URL` y `ASSET_URL` deben apuntar a esa URL en el entorno XAMPP. `ASSET_URL` permite que los módulos Vue cargados de forma dinámica resuelvan su JavaScript y CSS desde la subcarpeta correcta. Ambos valores deberán adaptarse al dominio y directorio público del hosting definitivo antes de compilar allí.
+
+En el hosting definitivo, el directorio publicado debe ser `public/`. No se debe confiar únicamente en el `.htaccess` de XAMPP para proteger secretos en otro servidor web; hay que volver a comprobar que `.env`, `storage/`, `vendor/` y la documentación no son accesibles por HTTP antes de cargar credenciales reales.
 
 Durante el desarrollo frontend puede mantenerse Vite activo en otra terminal:
 

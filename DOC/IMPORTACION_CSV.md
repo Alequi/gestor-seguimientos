@@ -39,6 +39,8 @@ Todos los campos se mantienen como cadenas UTF-8. En concreto:
 - El lector respeta el entrecomillado CSV, incluidos los separadores `;` dentro de un campo.
 - Las columnas adicionales no forman parte del DTO de RF-02.
 
+El CSV de referencia aportado para RF-07 confirma que `Fecha alta` usa `DD/MM/AAAA` en sus 40 filas. RF-02 sigue transportando ese valor como texto sin convertirlo ni validarlo; la interpretación estricta pertenece a la regla temporal de RF-07 documentada en [Búsqueda de pedidos en Shopify](BUSQUEDA_PEDIDOS.md). El CSV real no se copia al repositorio.
+
 RF-02 no recorta ni normaliza los valores originales y no valida el formato individual de cada campo. El valor leído se conserva para que las transformaciones posteriores sean explícitas y comprobables.
 
 ## Alcance de RF-03

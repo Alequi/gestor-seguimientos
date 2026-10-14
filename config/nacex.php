@@ -1,6 +1,11 @@
 <?php
 
 return [
+    'order_date' => [
+        'days_before' => 30,
+        'days_after' => 7,
+        'time_zone' => 'Europe/Madrid',
+    ],
     'tracking' => [
         'base_url' => 'https://www.nacex.es/seguimientoDetalle.do',
         'status' => '4',
