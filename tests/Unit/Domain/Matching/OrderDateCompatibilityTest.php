@@ -50,4 +50,15 @@ class OrderDateCompatibilityTest extends TestCase
         self::assertTrue($compatibility->includes('14/10/2026', new DateTimeImmutable('2026-10-13T12:00:00Z')));
         self::assertFalse($compatibility->includes('14/10/2026', new DateTimeImmutable('2026-10-12T12:00:00Z')));
     }
+
+    public function test_it_exposes_exact_instants_for_a_date_search_across_a_dst_change(): void
+    {
+        $compatibility = new OrderDateCompatibility(30, 7, new DateTimeZone('Europe/Madrid'));
+        $window = $compatibility->window('14/10/2026');
+
+        self::assertSame('2026-09-13T22:00:00+00:00', $window->startInclusive->setTimezone(new DateTimeZone('UTC'))->format('c'));
+        self::assertSame('2026-10-21T22:00:00+00:00', $window->endExclusive->setTimezone(new DateTimeZone('UTC'))->format('c'));
+        self::assertTrue($window->includes(new DateTimeImmutable('2026-10-21T21:59:59Z')));
+        self::assertFalse($window->includes(new DateTimeImmutable('2026-10-21T22:00:00Z')));
+    }
 }

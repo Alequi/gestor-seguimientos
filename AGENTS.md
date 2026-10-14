@@ -136,12 +136,9 @@ La implementación y revisión del frontend debe utilizar la skill `$emil-design
 
 ## Aspectos todavía por concretar
 
-No conviertas estos puntos en reglas definitivas sin una decisión de producto:
+La regla temporal está confirmada: desde 30 días antes hasta 7 días después de `Fecha alta`, ambos límites incluidos, comparando los días en `Europe/Madrid`. Para la coincidencia inversa, el usuario delegó el criterio: se admiten como máximo dos caracteres Unicode adicionales al final del mismo término tras normalizar los nombres, sin una palabra nueva. El código postal, la fecha y la unicidad del pedido siguen siendo condiciones obligatorias. Los detalles se mantienen en `DOC/BUSQUEDA_PEDIDOS.md`.
 
-- Definición exacta de una fecha de pedido compatible con la fecha de alta de NACEX.
-- Diferencia máxima de longitud aceptada para la coincidencia inversa entre referencia y nombre de Shopify.
-
-No implementes comportamientos que dependan de estos puntos hasta obtener una decisión expresa del usuario. Esta restricción de desarrollo no altera la regla funcional de que la aplicación debe enviar a revisión manual los casos dudosos durante su ejecución.
+No conviertas otros puntos ambiguos en reglas definitivas sin una decisión de producto. La aplicación debe enviar a revisión manual los casos dudosos durante su ejecución.
 
 ## Forma de trabajo
 

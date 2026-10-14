@@ -20,16 +20,20 @@ final readonly class OrderDateCompatibility
 
     public function includes(string $registrationDate, DateTimeImmutable $orderCreatedAt): bool
     {
+        return $this->window($registrationDate)->includes($orderCreatedAt);
+    }
+
+    public function window(string $registrationDate): OrderDateWindow
+    {
         $nacexDate = DateTimeImmutable::createFromFormat('!d/m/Y', $registrationDate, $this->timeZone);
 
         if ($nacexDate === false || $nacexDate->format('d/m/Y') !== $registrationDate) {
             throw new InvalidArgumentException('La fecha de alta de NACEX no tiene el formato DD/MM/AAAA.');
         }
 
-        $orderDate = $orderCreatedAt->setTimezone($this->timeZone)->format('Y-m-d');
-        $firstDate = $nacexDate->modify("-{$this->daysBefore} days")->format('Y-m-d');
-        $lastDate = $nacexDate->modify("+{$this->daysAfter} days")->format('Y-m-d');
-
-        return $orderDate >= $firstDate && $orderDate <= $lastDate;
+        return new OrderDateWindow(
+            startInclusive: $nacexDate->modify("-{$this->daysBefore} days"),
+            endExclusive: $nacexDate->modify('+'.($this->daysAfter + 1).' days'),
+        );
     }
 }

@@ -77,7 +77,9 @@ RF-06 añade `Domain/Shipment/NacexTrackingUrlBuilder`, configurado desde `confi
 
 La primera pieza de RF-07 es `Domain/Matching/OrderDateCompatibility`. Recibe la fecha de alta textual y la fecha de creación del pedido como instante; compara días de calendario en `Europe/Madrid` dentro de la ventana inclusiva configurada en `config/nacex.php`. Está registrada en el contenedor, pero todavía no la consume un caso de uso.
 
-La infraestructura de RF-07 añade `ShopifyStoreEndpoint` para limitar las solicitudes HTTPS al subdominio configurado y a la versión Admin GraphQL `2026-10`, `ShopifyClientCredentialsTokenProvider` para intercambiar las credenciales de la aplicación por un token temporal, y `ShopifyAdminGraphqlClient` para enviar operaciones GraphQL autenticadas. Se registran en el contenedor pero ningún controlador ni caso de uso los invoca todavía. Los fallos se encapsulan con mensajes seguros; no se guarda el token fuera de memoria. La búsqueda y adaptación de pedidos se añadirán detrás de un contrato de aplicación cuando se implementen.
+La infraestructura de RF-07 añade `ShopifyStoreEndpoint` para limitar las solicitudes HTTPS al subdominio configurado y a la versión Admin GraphQL `2026-10`, `ShopifyClientCredentialsTokenProvider` para intercambiar las credenciales de la aplicación por un token temporal, y `ShopifyAdminGraphqlClient` para enviar operaciones GraphQL autenticadas. Los fallos se encapsulan con mensajes seguros; no se guarda el token fuera de memoria. `ShopifyOrderReader` implementa el contrato de aplicación homónimo y adapta pedidos paginados por la ventana temporal de dominio; `FindShopifyOrdersForNacexDate` coordina ambas piezas. Ningún controlador los invoca todavía, y esta lectura no clasifica ni modifica pedidos.
+
+La primera pieza de RF-08 es `RecipientNameCompatibility`, que reutiliza la normalización existente y concentra la regla de prefijo normal e inverso. `FindShippingAddressMatchesForShipment` combina esa regla con código postal y fecha sobre los pedidos leídos, sin decidir todavía si el estado del pedido permite preparar. El valor máximo de la dirección inversa está en `config/nacex.php`. La infraestructura utiliza el nombre completo de envío o, si falta, nombre y apellidos de la misma dirección; no requiere aún `read_customers`.
 
 ## Estructura frontend
 
@@ -159,7 +161,6 @@ La adaptación posterior a hosting se diseñará cuando se conozcan sus capacida
 
 ## Decisiones todavía necesarias
 
-- Diferencia máxima de longitud admitida para coincidencia inversa del nombre.
 - Estrategia de progreso durante la ejecución del lote.
 - Librería visual y sistema de estilos.
 - Capacidades y restricciones del hosting definitivo.

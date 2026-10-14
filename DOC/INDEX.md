@@ -20,7 +20,7 @@ Antes de iniciar cualquier cambio o nueva funcionalidad, se debe leer este índi
 | [Frontend y diseño de interacción](FRONTEND.md) | Criterios obligatorios de interfaz, componentes, movimiento, rendimiento y accesibilidad basados en `$emil-design-eng`. | Vigente |
 | [Entorno de desarrollo](ENTORNO_DESARROLLO.md) | Versiones instaladas, preparación y protección HTTP en XAMPP, puesta en marcha, verificaciones y copias de respaldo. | Vigente |
 | [Importación de CSV NACEX](IMPORTACION_CSV.md) | Contrato, validaciones, lectura textual, filtrado, deduplicación segura, normalización, URLs de seguimiento, conflictos, interfaz y límites de la carga de archivos NACEX (RF-01 a RF-06). | Vigente |
-| [Búsqueda de pedidos en Shopify](BUSQUEDA_PEDIDOS.md) | Regla temporal y conexión Admin GraphQL de solo lectura verificadas para RF-07; búsqueda de pedidos aún pendiente. | En desarrollo |
+| [Búsqueda de pedidos en Shopify](BUSQUEDA_PEDIDOS.md) | Regla temporal, lector paginado y comparación conservadora de nombre y CP para RF-07/RF-08; análisis del CSV todavía pendiente. | En desarrollo |
 
 ## Decisiones confirmadas posteriores a los documentos de producto
 
@@ -48,12 +48,11 @@ Estas decisiones deben incorporarse al documento temático correspondiente cuand
 - RF-06 construye para cada candidata procesable la URL exacta de seguimiento NACEX con la agencia normalizada y el albarán textual. La URL base y los valores constantes `estado=4`, `internacional=0` y `externo=N` se centralizan en configuración.
 - RF-07 utilizará Shopify Admin GraphQL API `2026-10`. La fecha de alta NACEX tiene formato `DD/MM/AAAA` en el CSV de referencia; la fecha del pedido se compara como día de `Europe/Madrid` dentro de una ventana inclusiva de 30 días antes a 7 días después.
 - La aplicación Shopify ya existe en Dev Dashboard, está instalada en la tienda de la misma organización y dispone de ID y secreto de cliente. El backend obtendrá tokens mediante el flujo de credenciales de cliente; ningún secreto se incorporará al repositorio.
+- RF-08 admite la coincidencia inversa solo si la referencia normalizada añade como máximo dos caracteres al final del mismo término respecto al nombre de Shopify; código postal, fecha y unicidad siguen siendo obligatorios.
 
 ## Decisiones pendientes
 
-- Diferencia máxima admitida para la coincidencia inversa entre referencia y nombre de Shopify.
-
-No debe implementarse ningún comportamiento dependiente de estas decisiones hasta que el usuario las confirme. Esto es independiente del comportamiento funcional de la aplicación, que enviará a revisión manual los casos dudosos durante su ejecución.
+No quedan decisiones pendientes para la regla temporal ni para el límite de coincidencia inversa. Cualquier nueva ambigüedad debe resolverse antes de implementar el comportamiento afectado.
 
 ## Norma de mantenimiento
 

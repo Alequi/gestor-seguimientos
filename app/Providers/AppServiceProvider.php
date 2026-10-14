@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Application\Contracts\NacexCsvInspector;
+use App\Application\Contracts\ShopifyOrderReader;
 use App\Domain\Matching\OrderDateCompatibility;
+use App\Domain\Matching\RecipientNameCompatibility;
 use App\Domain\Shipment\NacexTrackingUrlBuilder;
 use App\Infrastructure\Nacex\Csv\NativeNacexCsvInspector;
 use App\Infrastructure\Shopify\ShopifyAdminGraphqlClient;
@@ -44,12 +46,21 @@ class AppServiceProvider extends ServiceProvider
             ),
         );
 
+        $this->app->bind(ShopifyOrderReader::class, \App\Infrastructure\Shopify\ShopifyOrderReader::class);
+
         $this->app->singleton(
             OrderDateCompatibility::class,
             fn (): OrderDateCompatibility => new OrderDateCompatibility(
                 daysBefore: (int) config('nacex.order_date.days_before'),
                 daysAfter: (int) config('nacex.order_date.days_after'),
                 timeZone: new DateTimeZone((string) config('nacex.order_date.time_zone')),
+            ),
+        );
+
+        $this->app->singleton(
+            RecipientNameCompatibility::class,
+            fn (): RecipientNameCompatibility => new RecipientNameCompatibility(
+                maxInverseSuffixCharacters: (int) config('nacex.matching.inverse_name_max_suffix_characters'),
             ),
         );
 

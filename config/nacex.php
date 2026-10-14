@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'matching' => [
+        'inverse_name_max_suffix_characters' => 2,
+    ],
     'order_date' => [
         'days_before' => 30,
         'days_after' => 7,
