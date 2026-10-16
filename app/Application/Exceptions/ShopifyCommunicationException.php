@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Infrastructure\Shopify;
+namespace App\Application\Exceptions;
 
 use RuntimeException;
 

@@ -14,6 +14,7 @@ final readonly class ValidateNacexCsv
         private DeduplicateNacexCsvRows $deduplicateRows,
         private NormalizeNacexCsvRows $normalizeRows,
         private BuildNacexTrackingUrls $buildTrackingUrls,
+        private AnalyzeNacexShipments $analyzeShipments,
     ) {}
 
     public function handle(
@@ -31,9 +32,10 @@ final readonly class ValidateNacexCsv
         $deduplicated = $this->deduplicateRows->handle($requestedRows);
         $normalizedRows = $this->normalizeRows->handle($deduplicated->rows);
         $candidates = $this->buildTrackingUrls->handle($normalizedRows);
+        $analysisResults = $this->analyzeShipments->handle($candidates);
 
         return $result->withCandidateRows(
-            candidateRows: $candidates,
+            candidateRows: $analysisResults,
             requestedRowCount: count($requestedRows),
             duplicateConflicts: $deduplicated->conflicts,
         );

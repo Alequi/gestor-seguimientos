@@ -2,7 +2,7 @@
 
 ## Estado
 
-RF-07 y RF-08 están en desarrollo. La compatibilidad temporal, un lector paginado de pedidos y la comparación conservadora con el nombre de envío están implementados. Todavía no están conectados al flujo CSV ni clasifican coincidencias como seguras para preparar. La única comprobación contra la tienda real sigue siendo una consulta mínima de conexión; no se han consultado pedidos reales ni modificado Shopify.
+RF-07, RF-08 y la clasificación de RF-09 están implementados en el análisis backend. El endpoint de carga CSV consulta Shopify en modo de solo lectura, compara nombre de envío, código postal y fecha, y devuelve una clasificación segura por expedición. La interfaz todavía no representa la vista previa de RF-10 ni permite ejecutar cumplimientos. La única comprobación realizada contra la tienda real sigue siendo una consulta mínima de conexión; durante este cambio no se consultaron pedidos reales ni se modificó Shopify.
 
 ## Decisiones confirmadas
 
@@ -18,21 +18,40 @@ RF-07 y RF-08 están en desarrollo. La compatibilidad temporal, un lector pagina
 
 `OrderDateCompatibility` interpreta estrictamente `Fecha alta` como `DD/MM/AAAA`. Rechaza fechas imposibles o con otra forma en lugar de convertirlas silenciosamente. Calcula un intervalo de instantes con inicio incluido y fin excluido, equivalente a incluir completos los días límite en `Europe/Madrid`, incluso cuando cambia el horario de verano. La comparación de un pedido reutiliza ese mismo intervalo.
 
-La regla está aislada en dominio y aún no participa en el endpoint de validación de CSV. Ese endpoint conserva `registrationDate` como texto y mantiene su respuesta anterior.
+La regla está aislada en dominio y participa en el endpoint CSV a través de los casos de uso de búsqueda y análisis. `registrationDate` se conserva además como texto en la respuesta.
 
 ## Lectura paginada preparada para RF-07
 
 `FindShopifyOrdersForNacexDate` obtiene la ventana de búsqueda y delega en el contrato `ShopifyOrderReader`. Su adaptador Admin GraphQL consulta pedidos por `created_at`, convierte ambos límites a UTC y recorre todas las páginas mediante cursor. Aplica además el intervalo localmente para rechazar cualquier pedido fuera de los límites aunque aparezca en la respuesta. Una respuesta incompleta, un cursor inválido o un pedido duplicado producen un error seguro; nunca se devuelve una lista parcial como si fuera completa.
 
-Por ahora se recuperan los campos mínimos para la fase siguiente: identificador y nombre del pedido, fecha de creación y cancelación, estado de preparación, nombre y código postal de envío. Si el nombre completo de envío está vacío, se compone a partir de nombre y apellidos de esa misma dirección, cuando ambos existen. La lectura conserva también pedidos cancelados o ya preparados: los requisitos posteriores deben distinguirlos y detectar duplicados antes de excluirlos. No se decide aquí una coincidencia por estado ni se permite preparar pedidos. La consulta ampliada se validó contra el esquema Admin GraphQL `2026-10` de Shopify y no añade el campo `customer`, que necesitaría un permiso adicional aún no comprobado. El tamaño de página es 100; no se aplica un límite silencioso de páginas.
+Se recuperan el identificador y nombre del pedido, fecha de creación y cancelación, estado agregado de preparación, nombre y código postal de envío, cumplimientos, seguimientos y hasta las dos primeras órdenes de cumplimiento. Dos órdenes bastan para bloquear el caso como múltiple. Si Shopify indica más páginas de órdenes de cumplimiento, también se considera múltiple. La lectura compara `fulfillmentsCount` con los cumplimientos recibidos y falla de forma segura si la respuesta queda truncada o incompleta. Si el nombre completo de envío está vacío, se compone a partir de nombre y apellidos de esa misma dirección, cuando ambos existen.
+
+La consulta se validó contra el esquema Admin GraphQL `2026-10`. Shopify informó de que requiere `read_orders` y los scopes de órdenes de cumplimiento que correspondan al modelo de la tienda (`read_assigned_fulfillment_orders`, `read_merchant_managed_fulfillment_orders` o `read_third_party_fulfillment_orders`, además de equivalentes especiales solo si fueran aplicables). Estos permisos no se comprobaron contra la tienda real. La consulta no añade el campo `customer`, que requeriría un permiso adicional aún no confirmado. El tamaño de página de pedidos es 100; no se aplica un límite silencioso de páginas.
 
 ## Comparación de nombre y código postal preparada para RF-08
 
 `RecipientNameCompatibility` reutiliza la normalización de RF-05 para ambos nombres. Acepta la dirección habitual, en la que el nombre Shopify empieza por la referencia NACEX. Para la dirección inversa, admite solo uno o dos caracteres Unicode adicionales al final de la referencia normalizada y rechaza un sufijo con espacios. No utiliza similitud difusa. El límite se centraliza en `config/nacex.php`.
 
-`FindShippingAddressMatchesForShipment` exige además código postal numérico de hasta cinco dígitos, normalizado como texto, y vuelve a comprobar la fecha. Devuelve los pedidos cuyo destinatario de envío coincide, pero **no los califica aún como `MATCHED_SAFE`**: mantiene pedidos cancelados o preparados para que la clasificación posterior pueda explicar y bloquear esos casos. Si falta nombre o código postal de envío, no crea una coincidencia automática. El respaldo por nombre de cliente o de facturación y la revisión manual quedan para las fases siguientes; no se ha supuesto que el permiso `read_customers` esté disponible.
+`FindShippingAddressMatchesForShipment` exige además código postal numérico de hasta cinco dígitos, normalizado como texto, y vuelve a comprobar la fecha. Mantiene pedidos preparados para que la clasificación pueda explicar y bloquear esos casos. Si falta nombre o código postal de envío, no crea una coincidencia automática. El respaldo por nombre de cliente o de facturación y la revisión manual quedan para fases posteriores; no se ha supuesto que el permiso `read_customers` esté disponible.
 
-No hay ruta ni acción de interfaz que invoque todavía este lector. Tampoco se ha confirmado en la tienda real el permiso de lectura de pedidos. Las pruebas de esta pieza usan respuestas simuladas y datos ficticios.
+El endpoint existente de carga y validación CSV invoca ya este lector después del filtrado, deduplicación, normalización y construcción del seguimiento. Los resultados se devuelven en la respuesta JSON, pero la interfaz aún no los presenta como la tabla de RF-10. Las pruebas usan respuestas simuladas y datos ficticios.
+
+## Clasificación segura de RF-09
+
+Cada expedición se procesa de forma independiente. Los pedidos cancelados se excluyen antes de decidir la coincidencia. Sin candidatos se devuelve `NO_MATCH`; con dos o más se devuelve `AMBIGUOUS` y se conservan los candidatos únicamente para revisión.
+
+Cuando existe un solo candidato se aplica este orden:
+
+1. Si el mismo albarán ya aparece en cualquier seguimiento, `TRACKING_EXISTS`.
+2. Si el pedido está completamente preparado, `ALREADY_FULFILLED`.
+3. Si está parcialmente preparado o Shopify devuelve varias órdenes de cumplimiento, `PARTIAL_FULFILLMENT`.
+4. Si existe un cumplimiento pero el seguimiento no permite concluir que sea el mismo, `FULFILLMENT_EXISTS` y revisión manual.
+5. Solo un pedido `UNFULFILLED`, sin cumplimientos y con una única orden `OPEN` obtiene `MATCHED_SAFE`.
+6. Cualquier combinación no concluyente devuelve `ERROR` con un mensaje seguro y no procesable.
+
+Así, `TRACKING_EXISTS` prevalece expresamente sobre `ALREADY_FULFILLED` cuando ambos son aplicables. La ambigüedad se resuelve antes de inspeccionar el estado de un pedido concreto: nunca se selecciona silenciosamente uno entre varios. Un fallo de fecha o de comunicación con Shopify se limita a esa expedición y el resto del lote continúa. Los detalles técnicos de Shopify no se exponen en la respuesta.
+
+Las expediciones con la misma `Fecha alta` reutilizan dentro de la petición la misma lectura de solo lectura. No existe caché persistente ni se guardan resultados entre cargas o sesiones.
 
 ## Acceso a Shopify preparado
 
@@ -44,11 +63,12 @@ En el XAMPP actual, el `.htaccess` de la raíz impide acceder por HTTP a `.env` 
 
 Shopify documenta este flujo para aplicaciones y tiendas de la misma organización, con tokens de unas 24 horas. Referencias: [credenciales de cliente](https://shopify.dev/docs/apps/build/authentication-authorization/client-credentials-grant?lang=node) y [Admin GraphQL API `2026-10`](https://shopify.dev/docs/api/admin-graphql/2026-10).
 
-## Pendiente para completar RF-07
+## Pendiente tras RF-09
 
-- Conectar la lectura al análisis del CSV, sin introducir persistencia.
-- Aplicar la prioridad completa de nombres documentada en la PRD, comprobar el permiso necesario para consultar clientes y clasificar los pedidos cancelados, preparados, parciales y los seguimientos existentes antes de permitir una selección segura.
-- Conectar el resultado con el análisis y la revisión previstos para los requisitos siguientes, manteniendo los casos dudosos fuera de la automatización.
+- Representar los resultados en la vista previa de RF-10 y permitir la revisión de candidatos sin introducir persistencia.
+- Completar la prioridad de nombres con cliente y facturación solo cuando se confirme y verifique el permiso necesario; la dirección de envío continúa siendo la única fuente automática actual.
+- Confirmar en un entorno de desarrollo los scopes de lectura de pedidos y órdenes de cumplimiento antes de utilizar el análisis con pedidos de prueba.
+- Implementar selección y revalidación en fases posteriores; todavía no existe ninguna mutación Shopify ni posibilidad de completar pedidos.
 
 ## Verificación
 
@@ -58,6 +78,6 @@ Las pruebas automatizadas del cliente Shopify utilizan exclusivamente respuestas
 
 Las pruebas añadidas para el lector cubren límites UTC derivados de `Europe/Madrid`, cambio horario, paginación, conservación de pedidos preparados para comprobaciones posteriores, filtrado defensivo del instante final y rechazo de cursores inválidos o repetidos. No acceden a la tienda real.
 
-Las nuevas pruebas de RF-08 cubren prefijo habitual, límite inverso de uno y dos caracteres, rechazo de tres caracteres o una palabra adicional, tildes, `ñ`, nombre vacío, código postal distinto, fecha exterior y conservación del estado Shopify para la clasificación posterior. Toda la información de prueba es ficticia. La verificación actual pasa con 88 tests y 254 assertions, Pint, typecheck, build y `git diff --check`.
+Las pruebas de RF-08 cubren prefijo habitual, límite inverso de uno y dos caracteres, rechazo de tres caracteres o una palabra adicional, tildes, `ñ`, nombre vacío, código postal distinto y fecha exterior. Las pruebas de RF-09 cubren ausencia y ambigüedad, exclusión de cancelados, precedencia del tracking, pedido preparado, parcial, varias órdenes de cumplimiento, cumplimiento inconcluyente, estado no procesable, rechazo de cumplimientos incompletos, aislamiento de errores, reutilización de lecturas por fecha y exposición de la clasificación desde el endpoint CSV. Toda la información de prueba es ficticia. La verificación actual pasa con 100 tests y 286 assertions; también pasan Pint, typecheck, build y `git diff --check`.
 
 La comprobación manual de conexión utilizó únicamente `shop { id }` y no imprimió el identificador. Laravel cargó los tres valores de configuración; el primer intento autenticó correctamente, pero Shopify devolvió `Invalid variables parameter.` por recibir `variables: []`. Tras omitir ese campo cuando está vacío, la misma consulta de solo lectura devolvió una respuesta válida. Ambas operaciones de prueba se validaron contra el esquema GraphQL `2026-10`. No se consultaron pedidos, no se modificó Shopify y no se abrió un navegador. Después de guardar las credenciales, `.env` siguió respondiendo `403` por HTTP y `public/` respondió `200`.

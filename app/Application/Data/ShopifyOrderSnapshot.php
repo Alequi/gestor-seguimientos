@@ -14,5 +14,30 @@ final readonly class ShopifyOrderSnapshot
         public string $fulfillmentStatus,
         public ?string $shippingName,
         public ?string $shippingPostalCode,
+        /** @var list<string> */
+        public array $trackingNumbers = [],
+        public int $fulfillmentCount = 0,
+        /** @var list<string> */
+        public array $fulfillmentOrderStatuses = [],
     ) {}
+
+    /**
+     * @return array{
+     *     id: string,
+     *     name: string,
+     *     createdAt: string,
+     *     shippingName: string|null,
+     *     fulfillmentStatus: string
+     * }
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'createdAt' => $this->createdAt->format(DATE_ATOM),
+            'shippingName' => $this->shippingName,
+            'fulfillmentStatus' => $this->fulfillmentStatus,
+        ];
+    }
 }

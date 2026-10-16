@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Application\Actions\FindShopifyOrdersForNacexDate;
-use App\Infrastructure\Shopify\ShopifyCommunicationException;
+use App\Application\Exceptions\ShopifyCommunicationException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -54,6 +54,9 @@ class ShopifyOrderReaderTest extends TestCase
         $this->assertSame('08019', $orders[0]->shippingPostalCode);
         $this->assertSame('FULFILLED', $orders[1]->fulfillmentStatus);
         $this->assertNotNull($orders[1]->cancelledAt);
+        $this->assertSame(['14910300'], $orders[1]->trackingNumbers);
+        $this->assertSame(1, $orders[1]->fulfillmentCount);
+        $this->assertSame(['CLOSED'], $orders[1]->fulfillmentOrderStatuses);
         $this->assertSame('gid://shopify/Order/3', $orders[2]->id);
 
         Http::assertSentCount(3);
@@ -118,11 +121,31 @@ class ShopifyOrderReaderTest extends TestCase
         app(FindShopifyOrdersForNacexDate::class)->handle('14/10/2026');
     }
 
+    public function test_it_rejects_an_incomplete_fulfillment_list_instead_of_missing_a_tracking(): void
+    {
+        $order = $this->order('gid://shopify/Order/1', '2026-10-14T10:00:00Z', 'UNFULFILLED');
+        $order['fulfillmentsCount'] = ['count' => 1];
+
+        Http::fake([
+            self::TOKEN_URL => Http::response(['access_token' => 'test-token', 'expires_in' => 86399], 200),
+            self::GRAPHQL_URL => Http::response(['data' => ['orders' => [
+                'nodes' => [$order],
+                'pageInfo' => ['hasNextPage' => false, 'endCursor' => null],
+            ]]], 200),
+        ]);
+
+        $this->expectException(ShopifyCommunicationException::class);
+
+        app(FindShopifyOrdersForNacexDate::class)->handle('14/10/2026');
+    }
+
     /**
      * @return array<string, mixed>
      */
     private function order(string $id, string $createdAt, string $status, ?string $cancelledAt = null): array
     {
+        $isFulfilled = $status === 'FULFILLED';
+
         return [
             'id' => $id,
             'name' => '#TEST',
@@ -130,6 +153,14 @@ class ShopifyOrderReaderTest extends TestCase
             'cancelledAt' => $cancelledAt,
             'displayFulfillmentStatus' => $status,
             'shippingAddress' => ['name' => 'Test Receiver', 'zip' => '08019'],
+            'fulfillmentsCount' => ['count' => $isFulfilled ? 1 : 0],
+            'fulfillments' => $isFulfilled
+                ? [['trackingInfo' => [['number' => '14910300']]]]
+                : [],
+            'fulfillmentOrders' => [
+                'nodes' => [['status' => $isFulfilled ? 'CLOSED' : 'OPEN']],
+                'pageInfo' => ['hasNextPage' => false],
+            ],
         ];
     }
 }

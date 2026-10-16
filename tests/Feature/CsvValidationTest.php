@@ -2,6 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Application\Contracts\ShopifyOrderReader;
+use App\Application\Data\ShopifyOrderSnapshot;
+use App\Domain\Matching\OrderDateWindow;
+use DateTimeImmutable;
 use Illuminate\Http\Testing\File;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -12,6 +16,19 @@ class CsvValidationTest extends TestCase
 Ag. Origen;Albarán;Fecha alta;Referencia;CP Ent.;Estado
 0304;0014910300;01/08/2026;Peña Muñoz;08019;Solicitada
 CSV;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->app->instance(ShopifyOrderReader::class, new class implements ShopifyOrderReader
+        {
+            public function findCreatedIn(OrderDateWindow $window): array
+            {
+                return [];
+            }
+        });
+    }
 
     public function test_home_page_exposes_the_csv_upload_contract(): void
     {
@@ -56,10 +73,43 @@ CSV;
             ->assertJsonPath('data.rows.0.normalizedReference', 'peña muñoz')
             ->assertJsonPath('data.rows.0.postalCode', '08019')
             ->assertJsonPath('data.rows.0.status', 'Solicitada')
+            ->assertJsonPath('data.rows.0.matchStatus', 'NO_MATCH')
             ->assertJsonPath(
                 'data.rows.0.trackingUrl',
                 'https://www.nacex.es/seguimientoDetalle.do?agencia_origen=0304&numero_albaran=0014910300&estado=4&internacional=0&externo=N',
             );
+    }
+
+    public function test_the_visible_csv_endpoint_returns_the_read_only_shopify_classification(): void
+    {
+        $this->app->instance(ShopifyOrderReader::class, new class implements ShopifyOrderReader
+        {
+            public function findCreatedIn(OrderDateWindow $window): array
+            {
+                return [new ShopifyOrderSnapshot(
+                    id: 'gid://shopify/Order/1',
+                    name: '#TEST1',
+                    createdAt: new DateTimeImmutable('2026-08-01T10:00:00Z'),
+                    cancelledAt: null,
+                    fulfillmentStatus: 'UNFULFILLED',
+                    shippingName: 'Peña Muñoz',
+                    shippingPostalCode: '08019',
+                    trackingNumbers: [],
+                    fulfillmentCount: 0,
+                    fulfillmentOrderStatuses: ['OPEN'],
+                )];
+            }
+        });
+
+        $this->postJson(route('csv.validate'), [
+            'csv' => $this->csvFile(self::VALID_CSV),
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.rows.0.matchStatus', 'MATCHED_SAFE')
+            ->assertJsonPath('data.rows.0.shopifyOrder.id', 'gid://shopify/Order/1')
+            ->assertJsonPath('data.rows.0.shopifyOrder.name', '#TEST1')
+            ->assertJsonCount(0, 'data.rows.0.candidateOrders')
+            ->assertJsonPath('data.rows.0.errorMessage', null);
     }
 
     public function test_only_requested_rows_are_returned_as_candidates(): void

@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Shopify;
 
+use App\Application\Exceptions\ShopifyCommunicationException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;

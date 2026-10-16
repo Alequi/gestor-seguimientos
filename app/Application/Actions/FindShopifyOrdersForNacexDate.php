@@ -6,8 +6,11 @@ use App\Application\Contracts\ShopifyOrderReader;
 use App\Application\Data\ShopifyOrderSnapshot;
 use App\Domain\Matching\OrderDateCompatibility;
 
-final readonly class FindShopifyOrdersForNacexDate
+final class FindShopifyOrdersForNacexDate
 {
+    /** @var array<string, list<ShopifyOrderSnapshot>> */
+    private array $ordersByDate = [];
+
     public function __construct(
         private OrderDateCompatibility $dates,
         private ShopifyOrderReader $orders,
@@ -18,6 +21,12 @@ final readonly class FindShopifyOrdersForNacexDate
      */
     public function handle(string $registrationDate): array
     {
-        return $this->orders->findCreatedIn($this->dates->window($registrationDate));
+        if (! array_key_exists($registrationDate, $this->ordersByDate)) {
+            $this->ordersByDate[$registrationDate] = $this->orders->findCreatedIn(
+                $this->dates->window($registrationDate),
+            );
+        }
+
+        return $this->ordersByDate[$registrationDate];
     }
 }

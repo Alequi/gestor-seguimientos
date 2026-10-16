@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Application\Exceptions\ShopifyCommunicationException;
 use App\Infrastructure\Shopify\ShopifyAdminGraphqlClient;
-use App\Infrastructure\Shopify\ShopifyCommunicationException;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;

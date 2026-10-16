@@ -4,6 +4,7 @@ namespace App\Infrastructure\Shopify;
 
 use App\Application\Contracts\ShopifyOrderReader as ShopifyOrderReaderContract;
 use App\Application\Data\ShopifyOrderSnapshot;
+use App\Application\Exceptions\ShopifyCommunicationException;
 use App\Domain\Matching\OrderDateWindow;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -24,6 +25,14 @@ final readonly class ShopifyOrderReader implements ShopifyOrderReaderContract
               cancelledAt
               displayFulfillmentStatus
               shippingAddress { name firstName lastName zip }
+              fulfillmentsCount { count }
+              fulfillments(first: 250) {
+                trackingInfo(first: 250) { number }
+              }
+              fulfillmentOrders(first: 2) {
+                nodes { status }
+                pageInfo { hasNextPage }
+              }
             }
           }
         }
@@ -116,6 +125,10 @@ final readonly class ShopifyOrderReader implements ShopifyOrderReaderContract
             throw new ShopifyCommunicationException('Shopify no devolvió una dirección de envío válida.');
         }
 
+        $trackingNumbers = $this->adaptTrackingNumbers($node);
+        $fulfillmentCount = $this->adaptFulfillmentCount($node, count($node['fulfillments'] ?? []));
+        $fulfillmentOrderStatuses = $this->adaptFulfillmentOrderStatuses($node);
+
         $shippingName = $shipping['name'] ?? null;
         if ($shippingName === null || trim($shippingName) === '') {
             $firstName = trim($shipping['firstName'] ?? '');
@@ -142,6 +155,78 @@ final readonly class ShopifyOrderReader implements ShopifyOrderReaderContract
             fulfillmentStatus: $node['displayFulfillmentStatus'],
             shippingName: $shippingName,
             shippingPostalCode: $shipping['zip'] ?? null,
+            trackingNumbers: $trackingNumbers,
+            fulfillmentCount: $fulfillmentCount,
+            fulfillmentOrderStatuses: $fulfillmentOrderStatuses,
         );
+    }
+
+    /** @return list<string> */
+    private function adaptTrackingNumbers(array $node): array
+    {
+        $fulfillments = $node['fulfillments'] ?? null;
+        if (! is_array($fulfillments) || ! array_is_list($fulfillments)) {
+            throw new ShopifyCommunicationException('Shopify no devolvió los cumplimientos del pedido correctamente.');
+        }
+
+        $numbers = [];
+        foreach ($fulfillments as $fulfillment) {
+            if (! is_array($fulfillment)
+                || ! is_array($fulfillment['trackingInfo'] ?? null)
+                || ! array_is_list($fulfillment['trackingInfo'])) {
+                throw new ShopifyCommunicationException('Shopify no devolvió los seguimientos del pedido correctamente.');
+            }
+
+            foreach ($fulfillment['trackingInfo'] as $tracking) {
+                if (! is_array($tracking)
+                    || (isset($tracking['number']) && ! is_string($tracking['number']))) {
+                    throw new ShopifyCommunicationException('Shopify no devolvió un seguimiento válido.');
+                }
+
+                if (($tracking['number'] ?? null) !== null) {
+                    $numbers[] = $tracking['number'];
+                }
+            }
+        }
+
+        return array_values(array_unique($numbers));
+    }
+
+    private function adaptFulfillmentCount(array $node, int $receivedCount): int
+    {
+        $count = $node['fulfillmentsCount']['count'] ?? null;
+        if (! is_int($count) || $count < 0 || $count !== $receivedCount) {
+            throw new ShopifyCommunicationException('Shopify no devolvió todos los cumplimientos del pedido.');
+        }
+
+        return $count;
+    }
+
+    /** @return list<string> */
+    private function adaptFulfillmentOrderStatuses(array $node): array
+    {
+        $connection = $node['fulfillmentOrders'] ?? null;
+        if (! is_array($connection)
+            || ! is_array($connection['nodes'] ?? null)
+            || ! array_is_list($connection['nodes'])
+            || ! is_bool($connection['pageInfo']['hasNextPage'] ?? null)) {
+            throw new ShopifyCommunicationException('Shopify no devolvió las órdenes de cumplimiento correctamente.');
+        }
+
+        $statuses = [];
+        foreach ($connection['nodes'] as $fulfillmentOrder) {
+            if (! is_array($fulfillmentOrder)
+                || ! is_string($fulfillmentOrder['status'] ?? null)) {
+                throw new ShopifyCommunicationException('Shopify no devolvió una orden de cumplimiento válida.');
+            }
+
+            $statuses[] = $fulfillmentOrder['status'];
+        }
+
+        if ($connection['pageInfo']['hasNextPage']) {
+            $statuses[] = 'ADDITIONAL_ORDER';
+        }
+
+        return $statuses;
     }
 }

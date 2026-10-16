@@ -20,7 +20,7 @@ Antes de iniciar cualquier cambio o nueva funcionalidad, se debe leer este índi
 | [Frontend y diseño de interacción](FRONTEND.md) | Criterios obligatorios de interfaz, componentes, movimiento, rendimiento y accesibilidad basados en `$emil-design-eng`. | Vigente |
 | [Entorno de desarrollo](ENTORNO_DESARROLLO.md) | Versiones instaladas, preparación y protección HTTP en XAMPP, puesta en marcha, verificaciones y copias de respaldo. | Vigente |
 | [Importación de CSV NACEX](IMPORTACION_CSV.md) | Contrato, validaciones, lectura textual, filtrado, deduplicación segura, normalización, URLs de seguimiento, conflictos, interfaz y límites de la carga de archivos NACEX (RF-01 a RF-06). | Vigente |
-| [Búsqueda de pedidos en Shopify](BUSQUEDA_PEDIDOS.md) | Regla temporal, lector paginado y comparación conservadora de nombre y CP para RF-07/RF-08; análisis del CSV todavía pendiente. | En desarrollo |
+| [Búsqueda y clasificación de pedidos en Shopify](BUSQUEDA_PEDIDOS.md) | Regla temporal, lectura paginada, matching conservador y clasificación segura RF-07 a RF-09 conectados al análisis de solo lectura del CSV. | En desarrollo |
 
 ## Decisiones confirmadas posteriores a los documentos de producto
 

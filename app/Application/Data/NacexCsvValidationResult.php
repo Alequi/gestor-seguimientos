@@ -7,7 +7,7 @@ final readonly class NacexCsvValidationResult
     /**
      * @param  list<string>  $headers
      * @param  list<NacexCsvRow>  $rows
-     * @param  list<NacexShipmentCandidate>  $candidateRows
+     * @param  list<ShipmentAnalysisResult>  $candidateRows
      * @param  list<NacexCsvDuplicateConflict>  $duplicateConflicts
      */
     public function __construct(
@@ -23,7 +23,7 @@ final readonly class NacexCsvValidationResult
     ) {}
 
     /**
-     * @param  list<NacexShipmentCandidate>  $candidateRows
+     * @param  list<ShipmentAnalysisResult>  $candidateRows
      */
     public function withCandidateRows(
         array $candidateRows,
@@ -61,7 +61,11 @@ final readonly class NacexCsvValidationResult
      *         normalizedReference: string,
      *         postalCode: string,
      *         status: string,
-     *         trackingUrl: string
+     *         trackingUrl: string,
+     *         matchStatus: string,
+     *         shopifyOrder: array<string, mixed>|null,
+     *         candidateOrders: list<array<string, mixed>>,
+     *         errorMessage: string|null
      *     }>,
      *     duplicateConflicts: list<array{
      *         originAgency: string,
@@ -89,7 +93,7 @@ final readonly class NacexCsvValidationResult
             'encoding' => $this->encoding,
             'headers' => $this->headers,
             'rows' => array_map(
-                static fn (NacexShipmentCandidate $row): array => $row->toArray(),
+                static fn (ShipmentAnalysisResult $row): array => $row->toArray(),
                 $this->candidateRows,
             ),
             'duplicateConflicts' => array_map(
