@@ -4,6 +4,8 @@
 
 Entorno local preparado para ejecutar la aplicación completa desde XAMPP. El 17 de octubre de 2026 el usuario confirmó la validación del flujo operativo completo con Shopify y mantuvo este entorno como destino de uso del MVP.
 
+La versión local estable inicial es `v1.0.0`. El procedimiento cotidiano y de recuperación se mantiene en `DOC/GUIA_OPERATIVA_LOCAL.md`.
+
 ## Versiones instaladas
 
 | Componente | Versión |

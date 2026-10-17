@@ -4,7 +4,7 @@ Herramienta interna para importar expediciones desde un CSV de NACEX, localizar 
 
 ## Estado del proyecto
 
-El flujo operativo completo del MVP está implementado y validado en el entorno local. RF-01 a RF-11 validan, buscan, clasifican, presentan y seleccionan; RF-12 a RF-18 confirman, revalidan cada pedido y crean de forma idempotente el cumplimiento NACEX; RF-19 descarga el informe CSV temporal de la sesión. El usuario confirmó también la revisión visual en escritorio y móvil.
+El flujo operativo completo del MVP está implementado y validado en el entorno local. RF-01 a RF-11 validan, buscan, clasifican, presentan y seleccionan; RF-12 a RF-18 confirman, revalidan cada pedido y crean de forma idempotente el cumplimiento NACEX; RF-19 descarga el informe CSV temporal de la sesión. El usuario confirmó también la revisión visual en escritorio y móvil. La primera versión local estable se identifica como `v1.0.0`.
 
 ## Funcionalidad disponible
 
@@ -86,6 +86,7 @@ Documentos principales:
 - [Arquitectura y estructura](DOC/ARQUITECTURA.md)
 - [Frontend y diseño de interacción](DOC/FRONTEND.md)
 - [Entorno de desarrollo](DOC/ENTORNO_DESARROLLO.md)
+- [Guía operativa local](DOC/GUIA_OPERATIVA_LOCAL.md)
 - [Importación de CSV NACEX](DOC/IMPORTACION_CSV.md)
 - [Búsqueda de pedidos en Shopify](DOC/BUSQUEDA_PEDIDOS.md)
 - [Confirmación y cumplimientos Shopify](DOC/CUMPLIMIENTOS.md)
@@ -173,6 +174,8 @@ Uso operativo:
 4. Comprueba el recuento, decide si notificar y pulsa **Confirmar y completar**.
 5. Revisa el resultado de cada fila; reintenta únicamente los errores después de comprobar Shopify.
 6. Pulsa **Descargar informe CSV** para guardar el resultado de todas las expediciones analizadas. La aplicación no conservará una copia.
+
+La puesta en marcha cotidiana, las actualizaciones, las copias seguras y la recuperación desde `v1.0.0` se detallan en [DOC/GUIA_OPERATIVA_LOCAL.md](DOC/GUIA_OPERATIVA_LOCAL.md).
 
 La confirmación realiza cambios reales en la tienda configurada. Antes del primer uso, verifica en una tienda u orden de prueba que la aplicación instalada dispone de los scopes de escritura indicados en Configuración.
 

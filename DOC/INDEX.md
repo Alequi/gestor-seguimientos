@@ -19,6 +19,7 @@ Antes de iniciar cualquier cambio o nueva funcionalidad, se debe leer este índi
 | [Arquitectura y estructura](ARQUITECTURA.md) | Stack aprobado, separación de responsabilidades, estructura prevista y normas de Clean Code. | Vigente |
 | [Frontend y diseño de interacción](FRONTEND.md) | Criterios obligatorios de interfaz, componentes, movimiento, rendimiento y accesibilidad basados en `$emil-design-eng`. | Vigente |
 | [Entorno de desarrollo](ENTORNO_DESARROLLO.md) | Versiones instaladas, preparación y protección HTTP en XAMPP, puesta en marcha, verificaciones y copias de respaldo. | Vigente |
+| [Guía operativa local](GUIA_OPERATIVA_LOCAL.md) | Arranque, uso diario, actualización, copia segura y recuperación de la versión local estable. | Vigente |
 | [Importación de CSV NACEX](IMPORTACION_CSV.md) | Contrato, validaciones, lectura textual, filtrado, deduplicación segura, normalización, URLs de seguimiento, conflictos, interfaz y límites de la carga de archivos NACEX (RF-01 a RF-06). | Vigente |
 | [Búsqueda, clasificación y selección de pedidos en Shopify](BUSQUEDA_PEDIDOS.md) | Regla temporal, lectura paginada, matching conservador, clasificación, vista previa y selección temporal RF-07 a RF-11. | Vigente |
 | [Confirmación, revalidación y cumplimiento en Shopify](CUMPLIMIENTOS.md) | Confirmación, revalidación por pedido, mutación idempotente, notificación, resultados y reintento RF-12 a RF-18. | Vigente |
@@ -58,6 +59,7 @@ Estas decisiones deben incorporarse al documento temático correspondiente cuand
 - RF-19 informa todas las expediciones analizadas mediante las 16 columnas del PRD. Registra si la notificación fue solicitada, no si fue entregada, y deja vacía la fecha de procesamiento de las filas no ejecutadas.
 - El flujo completo se ha validado localmente con Shopify y la interfaz se ha revisado en escritorio y móvil. El MVP local no incorporará progreso detallado para lotes porque el volumen operativo previsto es corto.
 - El hosting definitivo se aplaza expresamente; mientras tanto la aplicación se utilizará en el entorno XAMPP local documentado.
+- El MVP local se cierra como versión estable `v1.0.0`; su operación y recuperación se rigen por `DOC/GUIA_OPERATIVA_LOCAL.md`.
 
 ## Decisiones pendientes
 
