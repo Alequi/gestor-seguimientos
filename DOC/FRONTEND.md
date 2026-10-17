@@ -4,7 +4,7 @@
 
 Norma aprobada para todo el frontend. La integración técnica de Inertia 3, Vue 3, TypeScript y Vite está implementada, junto con una página mínima de comprobación.
 
-RF-01 define el sistema visual inicial mediante CSS propio: tipografía del sistema, superficies neutras, azul para acciones y foco, verde para validación y rojo para errores. RF-02 conserva la misma interacción y amplía el contrato TypeScript para mantener en memoria las filas leídas como texto. RF-03 añade el conteo de candidatas y un estado ámbar cuando no existen filas `Solicitada`. RF-04 diferencia filas solicitadas, expediciones procesables y grupos contradictorios, que se muestran en un aviso ámbar identificable. RF-05 amplía el contrato de cada candidata con la referencia normalizada y RF-06 con la URL de seguimiento; ambos se confirman en el mismo feedback estático. No utiliza librería de componentes ni de movimiento.
+RF-01 define el sistema visual inicial mediante CSS propio: tipografía del sistema, superficies neutras, azul para acciones y foco, verde para validación y rojo para errores. RF-02 a RF-11 cubren carga, análisis y selección. RF-12 a RF-18 añaden confirmación centrada, ejecución bloqueada frente a doble clic, resultados por fila y reintento de errores. No utiliza librería de componentes ni de movimiento.
 
 ## Fuente obligatoria
 
@@ -125,7 +125,6 @@ Las revisiones de código o movimiento deben presentar los hallazgos en esta tab
 
 ## Decisiones pendientes
 
-- Densidad y comportamiento visual de la futura tabla de resultados.
 - Estrategia exacta para toasts, modales, popovers y tooltips.
 - Necesidad real de una librería de movimiento.
 
@@ -137,10 +136,11 @@ No se elegirán estas opciones hasta que el usuario las confirme o solicite una 
 resources/
 ├── css/app.css             Reset y tokens visuales globales
 ├── js/app.ts               Arranque de Vue e Inertia sin SSR
+├── js/Components/Analysis/ Vista previa tabular de resultados RF-10
 ├── js/Components/Csv/      Panel presentacional de carga
-├── js/Composables/         Estado y petición de validación
+├── js/Composables/         Validación CSV y selección temporal de expediciones
 ├── js/Pages/Home.vue       Página de importación
-├── js/Types/               Contratos TypeScript de RF-01 a RF-06
+├── js/Types/               Contratos TypeScript del CSV y análisis Shopify
 ├── js/vite-env.d.ts        Tipos de Vite
 └── views/app.blade.php     Contenedor Blade exclusivo para Inertia
 ```
@@ -149,7 +149,7 @@ Blade se limita al documento raíz requerido por Inertia. No contiene componente
 
 La interfaz RF-01 utiliza feedback de pulsación solo en punteros precisos, transiciones breves de propiedades concretas y desactiva el movimiento bajo `prefers-reduced-motion`. Los estados de éxito y error usan `role="status"` y `role="alert"`, respectivamente.
 
-RF-02 no introduce una tabla ni controles adicionales. El panel confirma en el estado de éxito que la lectura conservó texto y ceros iniciales, mientras el composable retiene el resultado completo —incluidas las filas— únicamente en memoria. La futura presentación y densidad de una tabla siguen fuera de este requisito.
+RF-02 no introdujo una tabla ni controles adicionales. El panel confirmó en el estado de éxito que la lectura conservó texto y ceros iniciales, mientras el composable retuvo el resultado completo —incluidas las filas— únicamente en memoria. La presentación posterior corresponde a RF-10.
 
 RF-03 muestra cuatro métricas estáticas —filas totales, candidatas, codificación y tamaño— y diferencia mediante texto, color y semántica el resultado con candidatas del resultado vacío. No se anima la aparición porque no aporta una relación espacial ni mejora una interacción frecuente. El aviso vacío usa `role="status"`, no bloquea una nueva carga y muestra expresamente que Shopify no será modificado.
 
@@ -159,4 +159,32 @@ El composable normaliza el límite HTTP antes de publicar el resultado al compon
 
 RF-05 no añade controles, tablas ni animaciones. El aviso de éxito existente aclara que agencia, código postal y referencia de comparación están normalizados sin modificar la referencia original. Las candidatas completas, incluida `normalizedReference`, continúan solo en memoria para los requisitos posteriores.
 
-RF-06 amplía el contrato de cada candidata con `trackingUrl`. La URL permanece solo en memoria y todavía no se abre ni se presenta como acción, porque la tabla y las operaciones pertenecen a requisitos posteriores. El aviso estático confirma que ya está preparada; no se incorporan controles, transiciones ni animaciones nuevas.
+RF-06 amplió el contrato de cada candidata con `trackingUrl`. RF-10 presenta esa URL como enlace aislado hacia NACEX; no se incorporan controles ni animaciones por fila.
+
+## Vista previa RF-10
+
+La densidad y el comportamiento de la tabla fueron confirmados por el usuario: presentación compacta, cabecera fija dentro de una región desplazable, desplazamiento horizontal en pantallas estrechas y ninguna animación por fila. La tabla admite hasta 1.000 resultados sin observers, transiciones de entrada ni controles interactivos por expedición.
+
+`AnalysisPreview.vue` presenta la referencia NACEX, agencia, albarán, código postal, fecha de alta, enlace de seguimiento, pedido o candidatos Shopify, destinatario, estado de preparación y clasificación final. Los casos ambiguos enumeran sus candidatos para revisión sin elegir uno. Las etiquetas contienen texto explícito, de modo que el resultado no depende solo del color.
+
+La región de tabla puede recibir foco por teclado, tiene nombre accesible y conserva visible la cabecera durante el desplazamiento vertical. El enlace de seguimiento se abre en una pestaña separada con aislamiento del contexto de origen. No se incluyen enlaces al administrador de Shopify, selección de filas, asignación manual ni acciones de cumplimiento porque corresponden a requisitos posteriores.
+
+`useCsvValidation` normaliza el contrato RF-10 antes de publicarlo. Mantiene compatibilidad temporal con respuestas anteriores mediante `matchStatus: null`, pero rechaza filas, pedidos, candidatos o estados con estructura desconocida. Los datos continúan solo en memoria de Vue y se pierden al recargar.
+
+## Selección RF-11
+
+Las filas `MATCHED_SAFE` con pedido identificado se seleccionan por defecto. El usuario puede desmarcarlas, volver a seleccionar todas las coincidencias seguras y excluir o restaurar cualquier expedición. La exclusión siempre retira la fila de la selección. Los demás estados no se pueden seleccionar, salvo `AMBIGUOUS` después de asignar manualmente uno de sus candidatos.
+
+Los candidatos ambiguos se presentan con radios nativos, tal como confirmó el usuario. Elegir o cambiar el candidato deja la fila sin seleccionar para exigir una segunda acción explícita mediante checkbox. Esta separación reduce el riesgo de convertir una inspección en una inclusión accidental. La asignación, selección y exclusión viven únicamente en memoria mediante `useShipmentSelection`; solo la selección confirmada se envía al endpoint de ejecución junto con el mismo CSV.
+
+Cada pedido expone un enlace “Abrir” en una pestaña separada. El frontend solo acepta URLs HTTPS con host `*.myshopify.com` y ruta numérica `/admin/orders/{id}`; cualquier forma desconocida invalida la respuesta. Los controles conservan foco visible, nombre accesible y feedback de pulsación limitado a punteros precisos. No se animan filas, radios, checkboxes ni cambios de selección.
+
+## Confirmación y resultados RF-12 a RF-18
+
+`FulfillmentExecutionPanel.vue` separa visualmente la operación destructiva de la tabla de revisión. El botón indica cuántos pedidos siguen pendientes y abre un diálogo centrado con los recuentos de pedidos y notificaciones. La notificación está activada por defecto y su explicación aclara que solo se solicita para un cumplimiento nuevo. La operación requiere una segunda acción explícita.
+
+Durante la petición, los botones de confirmar y reintentar quedan deshabilitados y muestran el estado real. No se presenta una barra de progreso ficticia: el lote se comunica como una única operación en curso y los resultados llegan por fila. El diálogo puede cerrarse con la acción Cancelar o pulsando el fondo solo antes de iniciar la petición.
+
+Los resultados usan texto además de color y muestran `Completado`, `Seguimiento existente`, `Ya preparado`, `Revisión necesaria` o `Error`. Un pedido con URL administrativa validada conserva acceso directo. Solo los errores de comunicación ofrecen `Reintentar`; los resultados seguros ya resueltos salen del recuento pendiente. Todo permanece en memoria y se pierde al recargar.
+
+No hay animaciones por fila ni transiciones de entrada. El diálogo aparece centrado sin movimiento; los botones usan únicamente feedback breve de presión en punteros precisos. `prefers-reduced-motion` elimina las transiciones de controles.

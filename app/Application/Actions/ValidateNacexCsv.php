@@ -2,18 +2,12 @@
 
 namespace App\Application\Actions;
 
-use App\Application\Contracts\NacexCsvInspector;
-use App\Application\Data\NacexCsvRow;
 use App\Application\Data\NacexCsvValidationResult;
-use App\Domain\Shipment\NacexShipmentStatus;
 
 final readonly class ValidateNacexCsv
 {
     public function __construct(
-        private NacexCsvInspector $inspector,
-        private DeduplicateNacexCsvRows $deduplicateRows,
-        private NormalizeNacexCsvRows $normalizeRows,
-        private BuildNacexTrackingUrls $buildTrackingUrls,
+        private PrepareNacexCsv $prepareCsv,
         private AnalyzeNacexShipments $analyzeShipments,
     ) {}
 
@@ -22,22 +16,13 @@ final readonly class ValidateNacexCsv
         string $originalName,
         int $sizeInBytes,
     ): NacexCsvValidationResult {
-        $result = $this->inspector->inspect($path, $originalName, $sizeInBytes);
-        $requestedRows = array_values(array_filter(
-            $result->rows,
-            static fn (NacexCsvRow $row): bool => NacexShipmentStatus::from($row->status)
-                ->isRequested(),
-        ));
+        $prepared = $this->prepareCsv->handle($path, $originalName, $sizeInBytes);
+        $analysisResults = $this->analyzeShipments->handle($prepared->shipments);
 
-        $deduplicated = $this->deduplicateRows->handle($requestedRows);
-        $normalizedRows = $this->normalizeRows->handle($deduplicated->rows);
-        $candidates = $this->buildTrackingUrls->handle($normalizedRows);
-        $analysisResults = $this->analyzeShipments->handle($candidates);
-
-        return $result->withCandidateRows(
+        return $prepared->inspection->withCandidateRows(
             candidateRows: $analysisResults,
-            requestedRowCount: count($requestedRows),
-            duplicateConflicts: $deduplicated->conflicts,
+            requestedRowCount: $prepared->requestedRowCount,
+            duplicateConflicts: $prepared->duplicateConflicts,
         );
     }
 }

@@ -20,7 +20,8 @@ Antes de iniciar cualquier cambio o nueva funcionalidad, se debe leer este índi
 | [Frontend y diseño de interacción](FRONTEND.md) | Criterios obligatorios de interfaz, componentes, movimiento, rendimiento y accesibilidad basados en `$emil-design-eng`. | Vigente |
 | [Entorno de desarrollo](ENTORNO_DESARROLLO.md) | Versiones instaladas, preparación y protección HTTP en XAMPP, puesta en marcha, verificaciones y copias de respaldo. | Vigente |
 | [Importación de CSV NACEX](IMPORTACION_CSV.md) | Contrato, validaciones, lectura textual, filtrado, deduplicación segura, normalización, URLs de seguimiento, conflictos, interfaz y límites de la carga de archivos NACEX (RF-01 a RF-06). | Vigente |
-| [Búsqueda y clasificación de pedidos en Shopify](BUSQUEDA_PEDIDOS.md) | Regla temporal, lectura paginada, matching conservador y clasificación segura RF-07 a RF-09 conectados al análisis de solo lectura del CSV. | En desarrollo |
+| [Búsqueda, clasificación y selección de pedidos en Shopify](BUSQUEDA_PEDIDOS.md) | Regla temporal, lectura paginada, matching conservador, clasificación, vista previa y selección temporal RF-07 a RF-11. | Vigente |
+| [Confirmación, revalidación y cumplimiento en Shopify](CUMPLIMIENTOS.md) | Confirmación, revalidación por pedido, mutación idempotente, notificación, resultados y reintento RF-12 a RF-18. | Vigente |
 
 ## Decisiones confirmadas posteriores a los documentos de producto
 
@@ -49,6 +50,10 @@ Estas decisiones deben incorporarse al documento temático correspondiente cuand
 - RF-07 utilizará Shopify Admin GraphQL API `2026-10`. La fecha de alta NACEX tiene formato `DD/MM/AAAA` en el CSV de referencia; la fecha del pedido se compara como día de `Europe/Madrid` dentro de una ventana inclusiva de 30 días antes a 7 días después.
 - La aplicación Shopify ya existe en Dev Dashboard, está instalada en la tienda de la misma organización y dispone de ID y secreto de cliente. El backend obtendrá tokens mediante el flujo de credenciales de cliente; ningún secreto se incorporará al repositorio.
 - RF-08 admite la coincidencia inversa solo si la referencia normalizada añade como máximo dos caracteres al final del mismo término respecto al nombre de Shopify; código postal, fecha y unicidad siguen siendo obligatorios.
+
+- RF-10 muestra una tabla compacta de resultados con cabecera fija, desplazamiento horizontal en móvil y sin animaciones por fila. Es una vista de solo lectura y no permite seleccionar ni modificar pedidos.
+- RF-11 asigna los candidatos ambiguos mediante controles de radio. Elegir un candidato no selecciona la fila automáticamente: el usuario debe marcarla después de revisar la asignación.
+- RF-12 a RF-18 reenvían el CSV con la selección, reconstruyen el seguimiento en backend, revalidan cada pedido justo antes de la mutación y aíslan los resultados por fila. La notificación está activada por defecto y solo se solicita al crear un cumplimiento nuevo.
 
 ## Decisiones pendientes
 

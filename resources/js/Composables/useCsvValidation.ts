@@ -4,7 +4,11 @@ import type {
     CsvValidationErrorResponse,
     CsvValidationResponse,
     CsvValidationResult,
+    NacexCsvRow,
+    ShopifyOrderPreview,
+    ShipmentMatchStatus,
 } from '../Types/CsvUpload';
+import { isSafeShopifyAdminUrl } from '../Utils/shopifyAdminUrl';
 
 const BYTES_PER_MEGABYTE = 1024 * 1024;
 
@@ -146,6 +150,14 @@ function normalizeValidationResult(
         return null;
     }
 
+    const rows = result.rows
+        .map(normalizeAnalysisRow)
+        .filter((row): row is NacexCsvRow => row !== null);
+
+    if (rows.length !== result.rows.length) {
+        return null;
+    }
+
     return {
         fileName: result.fileName,
         sizeInBytes: result.sizeInBytes,
@@ -161,9 +173,122 @@ function normalizeValidationResult(
                 : 0,
         encoding: result.encoding,
         headers: result.headers,
-        rows: result.rows,
+        rows,
         duplicateConflicts: Array.isArray(result.duplicateConflicts)
             ? result.duplicateConflicts
             : [],
     };
+}
+
+const MATCH_STATUSES: ShipmentMatchStatus[] = [
+    'MATCHED_SAFE',
+    'NO_MATCH',
+    'AMBIGUOUS',
+    'ALREADY_FULFILLED',
+    'TRACKING_EXISTS',
+    'FULFILLMENT_EXISTS',
+    'PARTIAL_FULFILLMENT',
+    'ERROR',
+];
+
+function normalizeAnalysisRow(row: unknown): NacexCsvRow | null {
+    if (!isRecord(row)) {
+        return null;
+    }
+
+    const sourceFields = [
+        'originAgency',
+        'trackingNumber',
+        'registrationDate',
+        'reference',
+        'normalizedReference',
+        'postalCode',
+        'status',
+        'trackingUrl',
+    ] as const;
+
+    if (sourceFields.some((field) => typeof row[field] !== 'string')) {
+        return null;
+    }
+
+    const matchStatus = normalizeMatchStatus(row.matchStatus);
+    const shopifyOrder = normalizeShopifyOrder(row.shopifyOrder);
+    const candidateOrders = Array.isArray(row.candidateOrders)
+        ? row.candidateOrders.map(normalizeShopifyOrder)
+        : [];
+
+    if (candidateOrders.some((order) => order === null)) {
+        return null;
+    }
+
+    if (row.matchStatus !== null && row.matchStatus !== undefined && matchStatus === null) {
+        return null;
+    }
+
+    if (row.shopifyOrder !== null && row.shopifyOrder !== undefined && shopifyOrder === null) {
+        return null;
+    }
+
+    if (
+        row.errorMessage !== null &&
+        row.errorMessage !== undefined &&
+        typeof row.errorMessage !== 'string'
+    ) {
+        return null;
+    }
+
+    return {
+        originAgency: row.originAgency as string,
+        trackingNumber: row.trackingNumber as string,
+        registrationDate: row.registrationDate as string,
+        reference: row.reference as string,
+        normalizedReference: row.normalizedReference as string,
+        postalCode: row.postalCode as string,
+        status: row.status as string,
+        trackingUrl: row.trackingUrl as string,
+        matchStatus,
+        shopifyOrder,
+        candidateOrders: candidateOrders as ShopifyOrderPreview[],
+        errorMessage: typeof row.errorMessage === 'string' ? row.errorMessage : null,
+    };
+}
+
+function normalizeMatchStatus(value: unknown): ShipmentMatchStatus | null {
+    return typeof value === 'string' && MATCH_STATUSES.includes(value as ShipmentMatchStatus)
+        ? (value as ShipmentMatchStatus)
+        : null;
+}
+
+function normalizeShopifyOrder(value: unknown): ShopifyOrderPreview | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+
+    if (
+        !isRecord(value) ||
+        typeof value.id !== 'string' ||
+        typeof value.name !== 'string' ||
+        typeof value.createdAt !== 'string' ||
+        (value.shippingName !== null && typeof value.shippingName !== 'string') ||
+        typeof value.fulfillmentStatus !== 'string'
+    ) {
+        return null;
+    }
+
+    if (value.adminUrl !== null && value.adminUrl !== undefined && !isSafeShopifyAdminUrl(value.adminUrl)) {
+        return null;
+    }
+
+    return {
+        id: value.id,
+        name: value.name,
+        createdAt: value.createdAt,
+        shippingName: value.shippingName,
+        fulfillmentStatus: value.fulfillmentStatus,
+        adminUrl: typeof value.adminUrl === 'string' ? value.adminUrl : null,
+    };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
 }

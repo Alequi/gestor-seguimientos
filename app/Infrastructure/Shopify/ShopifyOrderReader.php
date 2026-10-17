@@ -8,6 +8,7 @@ use App\Application\Exceptions\ShopifyCommunicationException;
 use App\Domain\Matching\OrderDateWindow;
 use DateTimeImmutable;
 use DateTimeZone;
+use InvalidArgumentException;
 use Throwable;
 
 final readonly class ShopifyOrderReader implements ShopifyOrderReaderContract
@@ -38,7 +39,10 @@ final readonly class ShopifyOrderReader implements ShopifyOrderReaderContract
         }
         GRAPHQL;
 
-    public function __construct(private ShopifyAdminGraphqlClient $client) {}
+    public function __construct(
+        private ShopifyAdminGraphqlClient $client,
+        private ShopifyStoreEndpoint $endpoint,
+    ) {}
 
     public function findCreatedIn(OrderDateWindow $window): array
     {
@@ -143,6 +147,9 @@ final readonly class ShopifyOrderReader implements ShopifyOrderReaderContract
             $cancelledAt = isset($node['cancelledAt'])
                 ? new DateTimeImmutable($node['cancelledAt'])
                 : null;
+            $adminUrl = $this->endpoint->orderAdminUrl($node['id']);
+        } catch (InvalidArgumentException) {
+            throw new ShopifyCommunicationException('Shopify no devolvió un identificador de pedido válido.');
         } catch (Throwable) {
             throw new ShopifyCommunicationException('Shopify no devolvió una fecha de pedido válida.');
         }
@@ -158,6 +165,7 @@ final readonly class ShopifyOrderReader implements ShopifyOrderReaderContract
             trackingNumbers: $trackingNumbers,
             fulfillmentCount: $fulfillmentCount,
             fulfillmentOrderStatuses: $fulfillmentOrderStatuses,
+            adminUrl: $adminUrl,
         );
     }
 

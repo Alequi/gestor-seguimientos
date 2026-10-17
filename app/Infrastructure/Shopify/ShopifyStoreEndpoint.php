@@ -28,4 +28,13 @@ final readonly class ShopifyStoreEndpoint
     {
         return "https://{$this->shop}.myshopify.com/admin/api/{$this->apiVersion}/graphql.json";
     }
+
+    public function orderAdminUrl(string $orderId): string
+    {
+        if (! preg_match('/\Agid:\/\/shopify\/Order\/([1-9]\d*)\z/D', $orderId, $matches)) {
+            throw new InvalidArgumentException('El identificador del pedido Shopify no es válido.');
+        }
+
+        return "https://{$this->shop}.myshopify.com/admin/orders/{$matches[1]}";
+    }
 }

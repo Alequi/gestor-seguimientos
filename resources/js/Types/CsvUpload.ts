@@ -1,8 +1,35 @@
 export interface CsvUploadConfig {
     validationUrl: string;
+    executionUrl: string;
     maxFileSizeMb: number;
     maxRows: number;
     requiredHeaders: string[];
+}
+
+export type ShipmentAssignment = 'AUTOMATIC' | 'MANUAL';
+
+export interface ShipmentSelection {
+    originAgency: string;
+    trackingNumber: string;
+    orderId: string;
+    assignment: ShipmentAssignment;
+}
+
+export type FulfillmentExecutionStatus =
+    | 'COMPLETED'
+    | 'TRACKING_EXISTS'
+    | 'ALREADY_FULFILLED'
+    | 'SKIPPED_AFTER_REVALIDATION'
+    | 'ERROR';
+
+export interface FulfillmentExecutionResult {
+    originAgency: string;
+    trackingNumber: string;
+    orderId: string;
+    orderName: string | null;
+    adminUrl: string | null;
+    status: FulfillmentExecutionStatus;
+    message: string;
 }
 
 export interface CsvValidationResult {
@@ -18,7 +45,7 @@ export interface CsvValidationResult {
     duplicateConflicts: NacexCsvDuplicateConflict[];
 }
 
-export interface NacexCsvRow {
+export interface NacexCsvSourceRow {
     originAgency: string;
     trackingNumber: string;
     registrationDate: string;
@@ -29,10 +56,36 @@ export interface NacexCsvRow {
     trackingUrl: string;
 }
 
+export type ShipmentMatchStatus =
+    | 'MATCHED_SAFE'
+    | 'NO_MATCH'
+    | 'AMBIGUOUS'
+    | 'ALREADY_FULFILLED'
+    | 'TRACKING_EXISTS'
+    | 'FULFILLMENT_EXISTS'
+    | 'PARTIAL_FULFILLMENT'
+    | 'ERROR';
+
+export interface ShopifyOrderPreview {
+    id: string;
+    name: string;
+    createdAt: string;
+    shippingName: string | null;
+    fulfillmentStatus: string;
+    adminUrl: string | null;
+}
+
+export interface NacexCsvRow extends NacexCsvSourceRow {
+    matchStatus: ShipmentMatchStatus | null;
+    shopifyOrder: ShopifyOrderPreview | null;
+    candidateOrders: ShopifyOrderPreview[];
+    errorMessage: string | null;
+}
+
 export interface NacexCsvDuplicateConflict {
     originAgency: string;
     trackingNumber: string;
-    rows: NacexCsvRow[];
+    rows: NacexCsvSourceRow[];
 }
 
 export interface CsvValidationResponse {

@@ -4,7 +4,7 @@ Herramienta interna para importar expediciones desde un CSV de NACEX, localizar 
 
 ## Estado del proyecto
 
-La arquitectura y el análisis backend están implementados. RF-01 a RF-06 validan, filtran, deduplican, normalizan y preparan el seguimiento; RF-07 y RF-08 leen pedidos mediante Shopify Admin GraphQL y aplican fecha, nombre de envío y código postal; RF-09 clasifica de forma conservadora cada expedición. El endpoint CSV ya realiza este análisis de solo lectura y devuelve sus resultados. La vista previa de RF-10 todavía no los representa en la interfaz y no existe ninguna operación para modificar Shopify.
+El flujo operativo hasta el resultado por pedido está implementado. RF-01 a RF-11 validan, buscan, clasifican, presentan y seleccionan; RF-12 a RF-18 confirman, revalidan cada pedido y crean de forma idempotente el cumplimiento NACEX. RF-19, el informe descargable, sigue pendiente.
 
 ## Funcionalidad disponible
 
@@ -30,6 +30,18 @@ La arquitectura y el análisis backend están implementados. RF-01 a RF-06 valid
 - Clasificación RF-09 en `MATCHED_SAFE`, `NO_MATCH`, `AMBIGUOUS`, `ALREADY_FULFILLED`, `TRACKING_EXISTS`, `FULFILLMENT_EXISTS`, `PARTIAL_FULFILLMENT` o `ERROR`.
 - Precedencia de `TRACKING_EXISTS` sobre `ALREADY_FULFILLED`, bloqueo de cancelados, parciales, múltiples órdenes de cumplimiento y cualquier estado no concluyente.
 - Aislamiento de errores por expedición y reutilización temporal de lecturas para filas con la misma fecha.
+- Vista previa compacta RF-10 con cabecera fija, desplazamiento horizontal, candidatos ambiguos visibles y etiquetas textuales para cada resultado.
+- Enlaces de seguimiento NACEX y apertura del pedido Shopify desde la vista previa, sin acciones de modificación.
+- Selección inicial exclusiva de coincidencias seguras, selección y deselección manual, y exclusión reversible de filas.
+- Asignación manual de candidatos ambiguos mediante radios seguida de una selección explícita independiente.
+- Apertura del pedido en Shopify mediante una URL administrativa validada y sin credenciales.
+- Confirmación explícita con recuento de pedidos y notificaciones antes de modificar Shopify.
+- Notificación al cliente activada por defecto y solicitada únicamente cuando se crea un cumplimiento nuevo.
+- Relectura del CSV y reconstrucción backend del número y la URL de seguimiento.
+- Revalidación individual de coincidencia, cancelación, seguimiento, estado y orden de cumplimiento justo antes de escribir.
+- Creación del cumplimiento NACEX para todos los artículos restantes de una única orden de cumplimiento válida.
+- Resultados independientes `COMPLETED`, `TRACKING_EXISTS`, `ALREADY_FULFILLED`, `SKIPPED_AFTER_REVALIDATION` y `ERROR`.
+- Aislamiento de errores y reintento manual con una nueva revalidación, sin detener el resto del lote.
 - Aviso seguro y accesible cuando el CSV no contiene expediciones candidatas.
 - Feedback accesible con nombre, tamaño, codificación y filas validadas.
 - Procesamiento temporal sin guardar el archivo ni sus datos.
@@ -42,7 +54,7 @@ El flujo previsto es:
 2. Validar y normalizar sus datos.
 3. Procesar únicamente expediciones con estado `Solicitada`.
 4. Buscar pedidos candidatos en Shopify mediante nombre, código postal y fecha.
-5. Mostrar una vista previa y permitir la revisión del usuario.
+5. Mostrar una vista previa, seleccionar coincidencias seguras y revisar o asignar manualmente los casos ambiguos.
 6. Revalidar cada pedido seleccionado.
 7. Crear el cumplimiento con el seguimiento de NACEX.
 8. Mostrar y descargar los resultados de la sesión.
@@ -72,6 +84,7 @@ Documentos principales:
 - [Entorno de desarrollo](DOC/ENTORNO_DESARROLLO.md)
 - [Importación de CSV NACEX](DOC/IMPORTACION_CSV.md)
 - [Búsqueda de pedidos en Shopify](DOC/BUSQUEDA_PEDIDOS.md)
+- [Confirmación y cumplimientos Shopify](DOC/CUMPLIMIENTOS.md)
 - [Instrucciones para agentes](AGENTS.md)
 
 ## Stack aprobado
@@ -120,7 +133,7 @@ Todo cambio o nueva funcionalidad debe actualizar la documentación relacionada,
 └── README.md                      Entrada general al proyecto
 ```
 
-No existe carpeta `database/`, modelo Eloquent ni autenticación de usuarios. RF-01 a RF-06 preparan las expediciones mediante dominio, aplicación e infraestructura; RF-07 aporta la regla temporal y la lectura Shopify; RF-08 compara la dirección de envío; RF-09 clasifica el resultado y aísla los errores por fila. El controlador permanece delgado y el endpoint CSV coordina estas piezas mediante `ValidateNacexCsv` sin guardar datos ni modificar Shopify.
+No existe carpeta `database/`, modelo Eloquent ni autenticación de usuarios. RF-01 a RF-11 cubren preparación, lectura, matching y selección; RF-12 a RF-18 revalidan y ejecutan mediante un contrato de cumplimiento separado. Los controladores permanecen delgados, el CSV se vuelve a preparar en backend y los resultados siguen solo en memoria.
 
 ## Instalación y ejecución
 
@@ -146,6 +159,16 @@ Con Apache iniciado, la aplicación queda disponible en:
 ```text
 http://localhost/gestor-seguimientos/public
 ```
+
+Uso operativo:
+
+1. Carga y analiza el CSV de NACEX.
+2. Revisa las coincidencias seguras y asigna manualmente cualquier caso ambiguo que quieras incluir.
+3. Ajusta la selección y pulsa **Completar pedidos**.
+4. Comprueba el recuento, decide si notificar y pulsa **Confirmar y completar**.
+5. Revisa el resultado de cada fila; reintenta únicamente los errores después de comprobar Shopify.
+
+La confirmación realiza cambios reales en la tienda configurada. Antes del primer uso, verifica en una tienda u orden de prueba que la aplicación instalada dispone de los scopes de escritura indicados en Configuración.
 
 Para trabajar con recarga de recursos frontend:
 
@@ -186,9 +209,11 @@ SHOPIFY_CLIENT_ID=
 SHOPIFY_CLIENT_SECRET=
 ```
 
-`SHOPIFY_SHOP` requiere solo el subdominio anterior a `.myshopify.com`, sin protocolo ni ruta. Los valores reales se guardan únicamente en el `.env` local ignorado por Git o como variables del entorno de ejecución; no se deben compartir por chat ni añadir a documentación o archivos versionados. El usuario ya los configuró localmente y se comprobó su presencia sin mostrarlos. El token obtenido se mantiene solo en memoria hasta poco antes de su caducidad. El cliente omite el campo GraphQL `variables` cuando está vacío, porque Shopify rechaza una lista vacía. El lector recupera todas las páginas de pedidos dentro de la ventana de fechas, sus cumplimientos, seguimientos y órdenes de cumplimiento, y falla si la respuesta es incompleta. La consulta RF-09 validada contra el esquema requiere `read_orders` y los scopes de órdenes de cumplimiento aplicables al modelo de la tienda. El endpoint CSV utiliza este lector en modo de solo lectura; faltan la representación de la vista previa, la selección y la revalidación antes de cualquier cumplimiento.
+`SHOPIFY_SHOP` requiere solo el subdominio anterior a `.myshopify.com`, sin protocolo ni ruta. Los valores reales se guardan únicamente en el `.env` local ignorado por Git o como variables del entorno de ejecución; no se deben compartir por chat ni añadir a documentación o archivos versionados. El usuario ya los configuró localmente y se comprobó su presencia sin mostrarlos. El token obtenido se mantiene solo en memoria hasta poco antes de su caducidad. El cliente omite el campo GraphQL `variables` cuando está vacío, porque Shopify rechaza una lista vacía. El lector recupera todas las páginas de pedidos dentro de la ventana de fechas y falla si la respuesta es incompleta. La ejecución revalida el pedido exacto y utiliza `fulfillmentCreate`, ambas operaciones validadas contra el esquema `2026-10`.
 
-La conexión se comprobó con la consulta de solo lectura `shop { id }` a Shopify Admin GraphQL `2026-10`, sin mostrar el identificador ni el token. Esta prueba confirma autenticación y acceso básico a la API; **no confirma todavía los permisos de lectura de pedidos o de cumplimiento**.
+Para cerrar pedidos, la aplicación instalada debe tener `read_orders` y los scopes de lectura y escritura de órdenes de cumplimiento aplicables: `read_assigned_fulfillment_orders`/`write_assigned_fulfillment_orders`, `read_merchant_managed_fulfillment_orders`/`write_merchant_managed_fulfillment_orders` o `read_third_party_fulfillment_orders`/`write_third_party_fulfillment_orders`, según el modelo de la tienda. Si se cambian scopes, la instalación o autorización de la aplicación debe actualizarse antes de operar.
+
+La conexión se comprobó con la consulta de solo lectura `shop { id }` a Shopify Admin GraphQL `2026-10`, sin mostrar el identificador ni el token. Esta prueba confirma autenticación y acceso básico a la API; **no confirma todavía los permisos reales de lectura y escritura de cumplimientos**. Las pruebas de desarrollo no mutan la tienda.
 
 En XAMPP, un `.htaccess` en la raíz bloquea por HTTP `.env` y todas las rutas del proyecto salvo `public/`; se comprobaron respuestas `403` para `.env` y `200` para la aplicación. En otro servidor, debe publicarse solo `public/` y volver a verificar esta protección antes de configurar secretos.
 

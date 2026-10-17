@@ -29,8 +29,8 @@ defineProps<{
                 <p class="eyebrow">Importación de expediciones</p>
                 <h1 id="page-title">Prepara los seguimientos con seguridad</h1>
                 <p>
-                    Valida el archivo de NACEX antes de buscar pedidos. Ninguna acción modificará
-                    Shopify sin una revisión y confirmación posteriores.
+                    Analiza el archivo de NACEX y revisa los pedidos encontrados. Esta fase solo
+                    consulta Shopify; ninguna acción lo modificará sin una confirmación posterior.
                 </p>
             </section>
 

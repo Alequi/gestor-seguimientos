@@ -2,7 +2,7 @@
 
 ## Estado
 
-La base técnica y el análisis backend están implementados. Laravel, Inertia, Vue y TypeScript están integrados; RF-01 a RF-06 preparan las expediciones; RF-07 y RF-08 realizan la lectura y el matching conservador; RF-09 clasifica cada resultado de forma segura. El endpoint CSV ya ejecuta este flujo de solo lectura. La vista previa de RF-10 y todas las mutaciones Shopify siguen pendientes.
+La base técnica y el flujo operativo hasta el resultado por fila están implementados. Laravel, Inertia, Vue y TypeScript están integrados; RF-01 a RF-11 preparan, buscan, clasifican, presentan y seleccionan; RF-12 a RF-18 confirman, revalidan, crean cumplimientos NACEX y aíslan los resultados. RF-19, el informe descargable, sigue pendiente.
 
 ## Stack aprobado
 
@@ -87,6 +87,12 @@ RF-09 añade `ShipmentMatchStatus`, `ShipmentAnalysisResult` y `AnalyzeNacexShip
 
 `ValidateNacexCsv` coordina ahora RF-01 a RF-09 y devuelve los resultados de análisis desde el endpoint existente. Este cambio no añade lógica de negocio al controlador ni al navegador, y no introduce operaciones de escritura sobre Shopify.
 
+RF-11 amplía `ShopifyStoreEndpoint` con la construcción validada del enlace administrativo de un pedido. `ShopifyOrderReader` incorpora esa URL al snapshot temporal únicamente después de aceptar un GID exacto de tipo `Order`; una respuesta con otro recurso, ID no numérico o ruta añadida falla de forma segura. No cambia la operación GraphQL ni añade permisos.
+
+RF-12 a RF-18 añaden `PrepareNacexCsv` como preparación compartida para impedir que análisis y ejecución diverjan. `ExecuteSelectedNacexShipments` vuelve a localizar cada identidad en el CSV, revalida coincidencia y estado, aplica precedencias idempotentes y delega la única escritura posible en el contrato `ShopifyFulfillmentGateway`. La infraestructura consulta el pedido exacto y ejecuta `fulfillmentCreate` con todos los artículos restantes de una única orden válida. Cada excepción de comunicación se transforma en un resultado de fila y el lote continúa.
+
+El endpoint de ejecución recibe el mismo archivo y una selección mínima; nunca acepta del navegador la URL NACEX, el estado del pedido ni una orden de cumplimiento. Los DTO `ShopifyOrderRevalidation`, `ShopifyFulfillmentOrder` y `FulfillmentExecutionResult` mantienen explícito el contrato entre aplicación e infraestructura. No se añade Eloquent ni persistencia.
+
 ## Estructura frontend
 
 Todo trabajo sobre esta capa debe comenzar leyendo `DOC/FRONTEND.md` y la skill `$emil-design-eng` completa.
@@ -101,9 +107,11 @@ resources/js/
 └── app.ts                 Punto de entrada de Vue e Inertia
 ```
 
-Actualmente están implementados `app.ts`, la página `Home.vue`, el panel de carga CSV, su composable de validación y los contratos TypeScript de archivo, resultado y fila NACEX. Las demás carpetas se crearán únicamente cuando una funcionalidad concreta las necesite.
+Actualmente están implementados `app.ts`, la página `Home.vue`, el panel de carga CSV, la vista previa y selección `AnalysisPreview.vue`, el panel de confirmación y resultados `FulfillmentExecutionPanel.vue`, los composables de validación y selección, la validación compartida de enlaces administrativos y los contratos TypeScript del flujo. Las demás carpetas se crearán únicamente cuando una funcionalidad concreta las necesite.
 
-`useCsvValidation` actúa como adaptador del límite HTTP: solo entrega al componente resultados con el contrato completo. Mantiene compatibilidad transitoria con respuestas RF-03 durante actualizaciones locales desacompasadas y rechaza respuestas estructuralmente incompletas con un mensaje operativo, evitando fallos de renderizado.
+`useCsvValidation` actúa como adaptador del límite HTTP: solo entrega al componente resultados con el contrato reconocido. Mantiene compatibilidad transitoria con respuestas anteriores durante actualizaciones locales desacompasadas y rechaza filas, estados o pedidos estructuralmente desconocidos con un mensaje operativo, evitando fallos de renderizado.
+
+`CsvUploadPanel.vue` conserva la carga, el feedback y las métricas. `AnalysisPreview.vue` representa RF-10 y los controles RF-11. `useShipmentSelection` encapsula selección automática, asignación y exclusión reversible. `FulfillmentExecutionPanel.vue` muestra la confirmación RF-12, bloquea dobles envíos y representa RF-18; envía el CSV y la selección al backend, pero no decide si un pedido es seguro. Todo el estado se pierde al recargar.
 
 Los componentes utilizarán el formato Single-File Component estándar:
 

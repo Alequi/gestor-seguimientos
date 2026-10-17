@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Application\Contracts\NacexCsvInspector;
+use App\Application\Contracts\ShopifyFulfillmentGateway;
 use App\Application\Contracts\ShopifyOrderReader;
 use App\Domain\Matching\OrderDateCompatibility;
 use App\Domain\Matching\RecipientNameCompatibility;
@@ -47,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->bind(ShopifyOrderReader::class, \App\Infrastructure\Shopify\ShopifyOrderReader::class);
+        $this->app->bind(ShopifyFulfillmentGateway::class, \App\Infrastructure\Shopify\ShopifyFulfillmentGateway::class);
 
         $this->app->singleton(
             OrderDateCompatibility::class,

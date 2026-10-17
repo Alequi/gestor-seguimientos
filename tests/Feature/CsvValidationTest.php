@@ -97,6 +97,7 @@ CSV;
                     trackingNumbers: [],
                     fulfillmentCount: 0,
                     fulfillmentOrderStatuses: ['OPEN'],
+                    adminUrl: 'https://example-store.myshopify.com/admin/orders/1',
                 )];
             }
         });
@@ -108,6 +109,10 @@ CSV;
             ->assertJsonPath('data.rows.0.matchStatus', 'MATCHED_SAFE')
             ->assertJsonPath('data.rows.0.shopifyOrder.id', 'gid://shopify/Order/1')
             ->assertJsonPath('data.rows.0.shopifyOrder.name', '#TEST1')
+            ->assertJsonPath(
+                'data.rows.0.shopifyOrder.adminUrl',
+                'https://example-store.myshopify.com/admin/orders/1',
+            )
             ->assertJsonCount(0, 'data.rows.0.candidateOrders')
             ->assertJsonPath('data.rows.0.errorMessage', null);
     }

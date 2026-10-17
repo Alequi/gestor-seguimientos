@@ -2,7 +2,7 @@
 
 ## Estado
 
-RF-07, RF-08 y la clasificación de RF-09 están implementados en el análisis backend. El endpoint de carga CSV consulta Shopify en modo de solo lectura, compara nombre de envío, código postal y fecha, y devuelve una clasificación segura por expedición. La interfaz todavía no representa la vista previa de RF-10 ni permite ejecutar cumplimientos. La única comprobación realizada contra la tienda real sigue siendo una consulta mínima de conexión; durante este cambio no se consultaron pedidos reales ni se modificó Shopify.
+RF-07 a RF-11 están implementados hasta la selección temporal. El endpoint de carga CSV consulta Shopify en modo de solo lectura, compara nombre de envío, código postal y fecha, y devuelve una clasificación segura por expedición. La ejecución posterior ya está documentada en `CUMPLIMIENTOS.md`. La única comprobación realizada contra la tienda real sigue siendo una consulta mínima de conexión; durante estos cambios no se consultaron pedidos reales ni se modificó Shopify.
 
 ## Decisiones confirmadas
 
@@ -34,7 +34,7 @@ La consulta se validó contra el esquema Admin GraphQL `2026-10`. Shopify inform
 
 `FindShippingAddressMatchesForShipment` exige además código postal numérico de hasta cinco dígitos, normalizado como texto, y vuelve a comprobar la fecha. Mantiene pedidos preparados para que la clasificación pueda explicar y bloquear esos casos. Si falta nombre o código postal de envío, no crea una coincidencia automática. El respaldo por nombre de cliente o de facturación y la revisión manual quedan para fases posteriores; no se ha supuesto que el permiso `read_customers` esté disponible.
 
-El endpoint existente de carga y validación CSV invoca ya este lector después del filtrado, deduplicación, normalización y construcción del seguimiento. Los resultados se devuelven en la respuesta JSON, pero la interfaz aún no los presenta como la tabla de RF-10. Las pruebas usan respuestas simuladas y datos ficticios.
+El endpoint existente de carga y validación CSV invoca ya este lector después del filtrado, deduplicación, normalización y construcción del seguimiento. Los resultados se devuelven en la respuesta JSON y la interfaz RF-10 los presenta sin añadir reglas de negocio en el navegador. Las pruebas usan respuestas simuladas y datos ficticios.
 
 ## Clasificación segura de RF-09
 
@@ -63,12 +63,25 @@ En el XAMPP actual, el `.htaccess` de la raíz impide acceder por HTTP a `.env` 
 
 Shopify documenta este flujo para aplicaciones y tiendas de la misma organización, con tokens de unas 24 horas. Referencias: [credenciales de cliente](https://shopify.dev/docs/apps/build/authentication-authorization/client-credentials-grant?lang=node) y [Admin GraphQL API `2026-10`](https://shopify.dev/docs/api/admin-graphql/2026-10).
 
-## Pendiente tras RF-09
+## Vista previa de RF-10
 
-- Representar los resultados en la vista previa de RF-10 y permitir la revisión de candidatos sin introducir persistencia.
+La tabla compacta muestra los datos NACEX, el enlace de seguimiento, el pedido único o los candidatos ambiguos, el destinatario, el estado Shopify y la clasificación segura. La cabecera permanece fija dentro de una región con desplazamiento; en móvil se conserva la tabla completa mediante desplazamiento horizontal. No se anima cada fila ni se introduce persistencia.
+
+Los candidatos ambiguos se muestran únicamente para revisión y nunca se selecciona uno de forma automática. Esta vista no incluye casillas, asignación manual, enlaces al administrador de Shopify ni botones de ejecución. El frontend traduce estados a etiquetas legibles, pero no recalcula matching, precedencias ni seguridad: consume la decisión del backend y rechaza contratos desconocidos.
+
+## Selección temporal de RF-11
+
+Solo `MATCHED_SAFE` se selecciona por defecto. Las filas ambiguas muestran radios para asignar uno de los candidatos devueltos; la asignación no marca la fila y cualquier cambio de candidato la desmarca. Estados ya preparados, parciales, con seguimiento o cumplimiento, sin coincidencia o con error permanecen bloqueados para selección. Todas las filas pueden excluirse y restaurarse durante la sesión.
+
+El backend añade a cada pedido una URL administrativa construida exclusivamente desde el subdominio validado de la tienda y un GID con forma exacta `gid://shopify/Order/{id numérico}`. La URL no contiene credenciales. El frontend vuelve a comprobar protocolo, host, ruta, ausencia de query y fragmento antes de presentarla.
+
+La selección, exclusión y asignación manual no se persisten. RF-11 por sí solo no contiene mutaciones; cuando el usuario confirma, RF-12 a RF-18 envían la selección mínima junto con el mismo CSV al endpoint descrito en `CUMPLIMIENTOS.md`.
+
+## Pendiente relacionado
+
 - Completar la prioridad de nombres con cliente y facturación solo cuando se confirme y verifique el permiso necesario; la dirección de envío continúa siendo la única fuente automática actual.
 - Confirmar en un entorno de desarrollo los scopes de lectura de pedidos y órdenes de cumplimiento antes de utilizar el análisis con pedidos de prueba.
-- Implementar selección y revalidación en fases posteriores; todavía no existe ninguna mutación Shopify ni posibilidad de completar pedidos.
+- RF-19 añadirá el informe descargable de la sesión; la confirmación, revalidación, mutación y resultados por fila ya están implementados.
 
 ## Verificación
 
@@ -78,6 +91,6 @@ Las pruebas automatizadas del cliente Shopify utilizan exclusivamente respuestas
 
 Las pruebas añadidas para el lector cubren límites UTC derivados de `Europe/Madrid`, cambio horario, paginación, conservación de pedidos preparados para comprobaciones posteriores, filtrado defensivo del instante final y rechazo de cursores inválidos o repetidos. No acceden a la tienda real.
 
-Las pruebas de RF-08 cubren prefijo habitual, límite inverso de uno y dos caracteres, rechazo de tres caracteres o una palabra adicional, tildes, `ñ`, nombre vacío, código postal distinto y fecha exterior. Las pruebas de RF-09 cubren ausencia y ambigüedad, exclusión de cancelados, precedencia del tracking, pedido preparado, parcial, varias órdenes de cumplimiento, cumplimiento inconcluyente, estado no procesable, rechazo de cumplimientos incompletos, aislamiento de errores, reutilización de lecturas por fecha y exposición de la clasificación desde el endpoint CSV. Toda la información de prueba es ficticia. La verificación actual pasa con 100 tests y 286 assertions; también pasan Pint, typecheck, build y `git diff --check`.
+Las pruebas de RF-08 cubren prefijo habitual, límite inverso de uno y dos caracteres, rechazo de tres caracteres o una palabra adicional, tildes, `ñ`, nombre vacío, código postal distinto y fecha exterior. Las pruebas de RF-09 cubren ausencia y ambigüedad, exclusión de cancelados, precedencia del tracking, pedido preparado, parcial, varias órdenes de cumplimiento, cumplimiento inconcluyente, estado no procesable, rechazo de cumplimientos incompletos, aislamiento de errores, reutilización de lecturas por fecha y exposición de la clasificación desde el endpoint CSV. RF-10 y RF-11 se verificaron mediante el contrato TypeScript y el build de producción; las pruebas backend de RF-11 cubren construcción y rechazo seguro de enlaces administrativos y su exposición en la respuesta. La verificación de RF-12 a RF-18 se detalla en `CUMPLIMIENTOS.md`. No se consultaron pedidos reales ni se modificó Shopify; toda la información de prueba es ficticia.
 
 La comprobación manual de conexión utilizó únicamente `shop { id }` y no imprimió el identificador. Laravel cargó los tres valores de configuración; el primer intento autenticó correctamente, pero Shopify devolvió `Invalid variables parameter.` por recibir `variables: []`. Tras omitir ese campo cuando está vacío, la misma consulta de solo lectura devolvió una respuesta válida. Ambas operaciones de prueba se validaron contra el esquema GraphQL `2026-10`. No se consultaron pedidos, no se modificó Shopify y no se abrió un navegador. Después de guardar las credenciales, `.env` siguió respondiendo `403` por HTTP y `public/` respondió `200`.

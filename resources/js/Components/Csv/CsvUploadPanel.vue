@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import AnalysisPreview from '../Analysis/AnalysisPreview.vue';
 import { useCsvValidation } from '../../Composables/useCsvValidation';
 import type { CsvUploadConfig } from '../../Types/CsvUpload';
 
@@ -60,14 +61,15 @@ function formatFileSize(bytes: number): string {
 </script>
 
 <template>
-    <section class="upload-panel" aria-labelledby="upload-title">
-        <div class="upload-main">
+    <div class="csv-workflow">
+        <section class="upload-panel" aria-labelledby="upload-title">
+            <div class="upload-main">
             <header class="section-heading">
-                <p class="step-label">Validación inicial</p>
+                <p class="step-label">Importación y análisis</p>
                 <h2 id="upload-title">Importa las expediciones</h2>
                 <p>
-                    Selecciona el CSV exportado desde NACEX. Solo validaremos su estructura;
-                    todavía no se consultará ni modificará Shopify.
+                    Selecciona el CSV exportado desde NACEX. Validaremos su estructura y
+                    buscaremos pedidos candidatos en Shopify sin realizar ninguna modificación.
                 </p>
             </header>
 
@@ -146,7 +148,7 @@ function formatFileSize(bytes: number): string {
                             Hay expediciones que requieren revisión
                         </strong>
                         <strong v-else-if="validationResult.processableRowCount > 0">
-                            Expediciones deduplicadas correctamente
+                            Análisis de expediciones completado
                         </strong>
                         <strong v-else>Sin expediciones solicitadas</strong>
                         <p
@@ -165,10 +167,9 @@ function formatFileSize(bytes: number): string {
                             automáticamente.
                         </p>
                         <p v-else-if="validationResult.processableRowCount > 0">
-                            La estructura es válida. Las repeticiones de una misma expedición se
-                            han reducido a una sola candidata. Agencia, código postal y referencia
-                            de comparación ya están normalizados, y la URL de seguimiento está
-                            preparada sin modificar la referencia original.
+                            La estructura es válida y cada expedición se ha clasificado con la
+                            información disponible en Shopify. Revisa la vista previa antes de
+                            continuar con cualquier operación posterior.
                         </p>
                         <p v-else>
                             No se han encontrado filas con estado «Solicitada». No se realizará
@@ -206,7 +207,7 @@ function formatFileSize(bytes: number): string {
                             </dd>
                         </div>
                         <div>
-                            <dt>Procesables</dt>
+                            <dt>Analizadas</dt>
                             <dd>
                                 {{ validationResult.processableRowCount.toLocaleString('es-ES') }}
                             </dd>
@@ -229,12 +230,12 @@ function formatFileSize(bytes: number): string {
                 </div>
 
                 <button class="primary-action" type="submit" :disabled="!canValidate">
-                    {{ isValidating ? 'Validando CSV…' : 'Analizar CSV' }}
+                    {{ isValidating ? 'Analizando CSV…' : 'Analizar CSV' }}
                 </button>
             </form>
-        </div>
+            </div>
 
-        <aside id="upload-requirements" class="requirements" aria-labelledby="requirements-title">
+            <aside id="upload-requirements" class="requirements" aria-labelledby="requirements-title">
             <div>
                 <p class="aside-label">Antes de continuar</p>
                 <h3 id="requirements-title">El archivo debe incluir</h3>
@@ -254,13 +255,26 @@ function formatFileSize(bytes: number): string {
 
             <p class="privacy-note">
                 No guardamos el archivo ni mantenemos historial. Al recargar la página se perderá
-                esta validación.
+                este análisis.
             </p>
-        </aside>
-    </section>
+            </aside>
+        </section>
+
+        <AnalysisPreview
+            v-if="validationResult && selectedFile && validationResult.rows.length > 0"
+            :rows="validationResult.rows"
+            :source-file="selectedFile"
+            :execution-url="config.executionUrl"
+        />
+    </div>
 </template>
 
 <style scoped>
+.csv-workflow {
+    display: grid;
+    gap: 28px;
+}
+
 .upload-panel {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(260px, 0.38fr);

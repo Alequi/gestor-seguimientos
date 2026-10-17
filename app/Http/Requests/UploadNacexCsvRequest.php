@@ -20,18 +20,24 @@ final class UploadNacexCsvRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'csv' => [
-                'bail',
-                'required',
-                File::types([
-                    'text/csv',
-                    'text/plain',
-                    'application/csv',
-                    'application/vnd.ms-excel',
-                ])
-                    ->extensions(['csv'])
-                    ->max((int) config('nacex.csv.max_size_kilobytes')),
-            ],
+            'csv' => self::csvRules(),
+        ];
+    }
+
+    /** @return list<mixed> */
+    public static function csvRules(): array
+    {
+        return [
+            'bail',
+            'required',
+            File::types([
+                'text/csv',
+                'text/plain',
+                'application/csv',
+                'application/vnd.ms-excel',
+            ])
+                ->extensions(['csv'])
+                ->max((int) config('nacex.csv.max_size_kilobytes')),
         ];
     }
 

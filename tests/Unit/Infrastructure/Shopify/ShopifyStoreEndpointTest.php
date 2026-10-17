@@ -17,6 +17,36 @@ class ShopifyStoreEndpointTest extends TestCase
         $this->assertSame('https://example-store.myshopify.com/admin/api/2026-10/graphql.json', $endpoint->graphqlUrl());
     }
 
+    public function test_builds_an_admin_url_only_for_a_shopify_order_gid(): void
+    {
+        $endpoint = new ShopifyStoreEndpoint('example-store', '2026-10');
+
+        $this->assertSame(
+            'https://example-store.myshopify.com/admin/orders/123456789',
+            $endpoint->orderAdminUrl('gid://shopify/Order/123456789'),
+        );
+    }
+
+    #[DataProvider('invalidOrderIds')]
+    public function test_rejects_invalid_order_ids(string $orderId): void
+    {
+        $endpoint = new ShopifyStoreEndpoint('example-store', '2026-10');
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $endpoint->orderAdminUrl($orderId);
+    }
+
+    public static function invalidOrderIds(): array
+    {
+        return [
+            'empty' => [''],
+            'other resource' => ['gid://shopify/Product/123'],
+            'missing numeric id' => ['gid://shopify/Order/order-one'],
+            'path injection' => ['gid://shopify/Order/123/fulfillments'],
+        ];
+    }
+
     #[DataProvider('invalidShops')]
     public function test_rejects_invalid_shop_subdomains(string $shop): void
     {

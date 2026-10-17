@@ -19,6 +19,7 @@ final readonly class ShopifyOrderSnapshot
         public int $fulfillmentCount = 0,
         /** @var list<string> */
         public array $fulfillmentOrderStatuses = [],
+        public ?string $adminUrl = null,
     ) {}
 
     /**
@@ -27,7 +28,8 @@ final readonly class ShopifyOrderSnapshot
      *     name: string,
      *     createdAt: string,
      *     shippingName: string|null,
-     *     fulfillmentStatus: string
+     *     fulfillmentStatus: string,
+     *     adminUrl: string|null
      * }
      */
     public function toArray(): array
@@ -38,6 +40,7 @@ final readonly class ShopifyOrderSnapshot
             'createdAt' => $this->createdAt->format(DATE_ATOM),
             'shippingName' => $this->shippingName,
             'fulfillmentStatus' => $this->fulfillmentStatus,
+            'adminUrl' => $this->adminUrl,
         ];
     }
 }

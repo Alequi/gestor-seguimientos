@@ -50,6 +50,10 @@ class ShopifyOrderReaderTest extends TestCase
 
         $this->assertCount(3, $orders);
         $this->assertSame('gid://shopify/Order/1', $orders[0]->id);
+        $this->assertSame(
+            'https://example-store.myshopify.com/admin/orders/1',
+            $orders[0]->adminUrl,
+        );
         $this->assertSame('Test Receiver', $orders[0]->shippingName);
         $this->assertSame('08019', $orders[0]->shippingPostalCode);
         $this->assertSame('FULFILLED', $orders[1]->fulfillmentStatus);
