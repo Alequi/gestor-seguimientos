@@ -12,6 +12,7 @@ const props = defineProps<{
     rows: NacexCsvRow[];
     sourceFile: File;
     executionUrl: string;
+    reportUrl: string;
 }>();
 
 const {
@@ -316,8 +317,10 @@ function handleAssignmentChange(row: NacexCsvRow, event: Event): void {
 
         <FulfillmentExecutionPanel
             :execution-url="executionUrl"
+            :report-url="reportUrl"
             :source-file="sourceFile"
             :selections="selectedShipments"
+            :rows="rows"
         />
     </section>
 </template>

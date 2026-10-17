@@ -1,6 +1,7 @@
 export interface CsvUploadConfig {
     validationUrl: string;
     executionUrl: string;
+    reportUrl: string;
     maxFileSizeMb: number;
     maxRows: number;
     requiredHeaders: string[];
@@ -30,6 +31,27 @@ export interface FulfillmentExecutionResult {
     adminUrl: string | null;
     status: FulfillmentExecutionStatus;
     message: string;
+    notificationRequested: boolean;
+    processedAt: string;
+}
+
+export interface ExecutionReportRow {
+    reference: string;
+    originAgency: string;
+    trackingNumber: string;
+    postalCode: string;
+    registrationDate: string;
+    nacexStatus: string;
+    trackingUrl: string;
+    matchStatus: string;
+    shopifyOrderName: string;
+    shopifyCustomer: string;
+    shopifyOrderDate: string;
+    previousOrderStatus: string;
+    fulfillmentResult: string;
+    notificationRequested: string;
+    processedAt: string;
+    errorMessage: string;
 }
 
 export interface CsvValidationResult {

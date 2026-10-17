@@ -2,7 +2,7 @@
 
 ## Estado
 
-La base técnica y el flujo operativo hasta el resultado por fila están implementados. Laravel, Inertia, Vue y TypeScript están integrados; RF-01 a RF-11 preparan, buscan, clasifican, presentan y seleccionan; RF-12 a RF-18 confirman, revalidan, crean cumplimientos NACEX y aíslan los resultados. RF-19, el informe descargable, sigue pendiente.
+La base técnica y el flujo operativo completo del MVP están implementados. Laravel, Inertia, Vue y TypeScript están integrados; RF-01 a RF-11 preparan, buscan, clasifican, presentan y seleccionan; RF-12 a RF-18 confirman, revalidan, crean cumplimientos NACEX y aíslan los resultados; RF-19 genera el informe CSV temporal de la sesión.
 
 ## Stack aprobado
 
@@ -93,6 +93,8 @@ RF-12 a RF-18 añaden `PrepareNacexCsv` como preparación compartida para impedi
 
 El endpoint de ejecución recibe el mismo archivo y una selección mínima; nunca acepta del navegador la URL NACEX, el estado del pedido ni una orden de cumplimiento. Los DTO `ShopifyOrderRevalidation`, `ShopifyFulfillmentOrder` y `FulfillmentExecutionResult` mantienen explícito el contrato entre aplicación e infraestructura. No se añade Eloquent ni persistencia.
 
+RF-19 conserva en Vue el cruce temporal entre las filas analizadas y los resultados ejecutados. `GenerateExecutionReportCsv` recibe DTO `ExecutionReportRow`, aplica el contrato fijo de 16 columnas y devuelve bytes CSV directamente; `ExecutionReportController` no guarda el contenido ni utiliza sesión. La capa HTTP valida un máximo de 1.000 filas, responde con `Cache-Control: no-store` y no interviene en ninguna decisión ni operación de Shopify.
+
 ## Estructura frontend
 
 Todo trabajo sobre esta capa debe comenzar leyendo `DOC/FRONTEND.md` y la skill `$emil-design-eng` completa.
@@ -107,7 +109,7 @@ resources/js/
 └── app.ts                 Punto de entrada de Vue e Inertia
 ```
 
-Actualmente están implementados `app.ts`, la página `Home.vue`, el panel de carga CSV, la vista previa y selección `AnalysisPreview.vue`, el panel de confirmación y resultados `FulfillmentExecutionPanel.vue`, los composables de validación y selección, la validación compartida de enlaces administrativos y los contratos TypeScript del flujo. Las demás carpetas se crearán únicamente cuando una funcionalidad concreta las necesite.
+Actualmente están implementados `app.ts`, la página `Home.vue`, el panel de carga CSV, la vista previa y selección `AnalysisPreview.vue`, el panel de confirmación, resultados y descarga `FulfillmentExecutionPanel.vue`, los composables de validación y selección, la validación compartida de enlaces administrativos y los contratos TypeScript del flujo. Las demás carpetas se crearán únicamente cuando una funcionalidad concreta las necesite.
 
 `useCsvValidation` actúa como adaptador del límite HTTP: solo entrega al componente resultados con el contrato reconocido. Mantiene compatibilidad transitoria con respuestas anteriores durante actualizaciones locales desacompasadas y rechaza filas, estados o pedidos estructuralmente desconocidos con un mensaje operativo, evitando fallos de renderizado.
 
@@ -175,8 +177,7 @@ La adaptación posterior a hosting se diseñará cuando se conozcan sus capacida
 
 ## Decisiones todavía necesarias
 
-- Estrategia de progreso durante la ejecución del lote.
 - Librería visual y sistema de estilos.
 - Capacidades y restricciones del hosting definitivo.
 
-No deben implementarse las áreas afectadas hasta que la decisión correspondiente haya sido confirmada.
+El MVP local conserva el indicador único de operación en curso y no añadirá progreso detallado por fila: el volumen previsto no tendrá lotes largos. La adaptación a hosting queda aplazada hasta que el usuario decida retomarla. No deben implementarse las demás áreas afectadas hasta que la decisión correspondiente haya sido confirmada.

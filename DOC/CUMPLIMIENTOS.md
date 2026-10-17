@@ -2,9 +2,9 @@
 
 ## Estado
 
-RF-12 a RF-18 están implementados. La aplicación permite confirmar una selección, revalidar cada pedido inmediatamente antes de modificar Shopify, crear el cumplimiento NACEX y mostrar un resultado independiente por expedición. El informe descargable de RF-19 permanece pendiente.
+RF-12 a RF-18 están implementados. La aplicación permite confirmar una selección, revalidar cada pedido inmediatamente antes de modificar Shopify, crear el cumplimiento NACEX y mostrar un resultado independiente por expedición. RF-19 añade la descarga temporal documentada en `DOC/INFORME_RESULTADOS.md`.
 
-Durante el desarrollo y la verificación automatizada no se ejecutaron mutaciones contra la tienda real. Las pruebas sustituyen el puerto Shopify o simulan las respuestas HTTP.
+Las pruebas automatizadas sustituyen el puerto Shopify o simulan las respuestas HTTP. Posteriormente, el usuario confirmó la validación local del flujo completo y de los permisos reales necesarios para operar con Shopify; no se documentan pedidos, credenciales ni datos de esa comprobación.
 
 ## Contrato de ejecución
 

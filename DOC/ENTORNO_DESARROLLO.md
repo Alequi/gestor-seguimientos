@@ -2,7 +2,7 @@
 
 ## Estado
 
-Entorno local preparado y verificado el 2 de agosto de 2026 para ejecutar la base Laravel desde XAMPP.
+Entorno local preparado para ejecutar la aplicación completa desde XAMPP. El 17 de octubre de 2026 el usuario confirmó la validación del flujo operativo completo con Shopify y mantuvo este entorno como destino de uso del MVP.
 
 ## Versiones instaladas
 
@@ -94,4 +94,4 @@ Estos valores permiten arrancar sin base de datos. El CSV y sus resultados no se
 
 ## Adaptación posterior
 
-El hosting definitivo sigue sin estar definido. Antes de adaptarlo deben confirmarse como mínimo su versión de PHP, extensiones disponibles, servidor web, acceso por terminal, posibilidad de ejecutar Composer/npm y estructura de publicación del directorio `public/`.
+El hosting definitivo se ha aplazado expresamente y la aplicación se utilizará localmente en XAMPP. Cuando se retome la adaptación deberán confirmarse como mínimo su versión de PHP, extensiones disponibles, servidor web, acceso por terminal, posibilidad de ejecutar Composer/npm y estructura de publicación del directorio `public/`.

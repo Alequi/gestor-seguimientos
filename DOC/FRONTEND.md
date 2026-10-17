@@ -4,7 +4,7 @@
 
 Norma aprobada para todo el frontend. La integración técnica de Inertia 3, Vue 3, TypeScript y Vite está implementada, junto con una página mínima de comprobación.
 
-RF-01 define el sistema visual inicial mediante CSS propio: tipografía del sistema, superficies neutras, azul para acciones y foco, verde para validación y rojo para errores. RF-02 a RF-11 cubren carga, análisis y selección. RF-12 a RF-18 añaden confirmación centrada, ejecución bloqueada frente a doble clic, resultados por fila y reintento de errores. No utiliza librería de componentes ni de movimiento.
+RF-01 define el sistema visual inicial mediante CSS propio: tipografía del sistema, superficies neutras, azul para acciones y foco, verde para validación y rojo para errores. RF-02 a RF-11 cubren carga, análisis y selección. RF-12 a RF-18 añaden confirmación centrada, ejecución bloqueada frente a doble clic, resultados por fila y reintento de errores. RF-19 incorpora una descarga CSV explícita después de obtener resultados. No utiliza librería de componentes ni de movimiento.
 
 ## Fuente obligatoria
 
@@ -130,6 +130,8 @@ Las revisiones de código o movimiento deben presentar los hallazgos en esta tab
 
 No se elegirán estas opciones hasta que el usuario las confirme o solicite una propuesta específica.
 
+La estrategia de progreso detallado por fila queda fuera del MVP local por decisión del usuario: los lotes previstos no serán largos. Se conserva el estado real de operación en curso existente, sin barra ni porcentaje simulado.
+
 ## Implementación base actual
 
 ```text
@@ -188,3 +190,11 @@ Durante la petición, los botones de confirmar y reintentar quedan deshabilitado
 Los resultados usan texto además de color y muestran `Completado`, `Seguimiento existente`, `Ya preparado`, `Revisión necesaria` o `Error`. Un pedido con URL administrativa validada conserva acceso directo. Solo los errores de comunicación ofrecen `Reintentar`; los resultados seguros ya resueltos salen del recuento pendiente. Todo permanece en memoria y se pierde al recargar.
 
 No hay animaciones por fila ni transiciones de entrada. El diálogo aparece centrado sin movimiento; los botones usan únicamente feedback breve de presión en punteros precisos. `prefers-reduced-motion` elimina las transiciones de controles.
+
+## Descarga de informe RF-19
+
+La acción “Descargar informe CSV” aparece junto al resultado después de recibir al menos una respuesta de ejecución. La descarga no introduce modal, toast ni animación: cambia su texto mientras se genera, evita solicitudes duplicadas y presenta un error accesible sin borrar los resultados existentes.
+
+Vue combina únicamente información ya presente en memoria: todas las filas analizadas, sus pedidos temporales y los resultados de ejecución. El navegador envía las 16 columnas finales al endpoint temporal y descarga su respuesta como `informe-ejecucion-nacex.csv`. No se usa almacenamiento local, cookie funcional ni estado persistente; recargar elimina tanto el análisis como la capacidad de regenerar el informe.
+
+“Notificación solicitada” vale `SÍ` solo para `COMPLETED` cuando la opción estaba activa en esa petición. No afirma la entrega del correo. La fecha de procesamiento usa `DD/MM/AAAA HH:mm:ss` en `Europe/Madrid` y queda vacía para filas no ejecutadas. Un caso ambiguo no asignado deja vacíos los campos singulares de pedido; una asignación manual ejecutada utiliza el candidato efectivamente procesado.

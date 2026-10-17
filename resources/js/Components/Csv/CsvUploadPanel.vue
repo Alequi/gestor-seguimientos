@@ -265,6 +265,7 @@ function formatFileSize(bytes: number): string {
             :rows="validationResult.rows"
             :source-file="selectedFile"
             :execution-url="config.executionUrl"
+            :report-url="config.reportUrl"
         />
     </div>
 </template>

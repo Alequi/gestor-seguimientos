@@ -22,6 +22,7 @@ Antes de iniciar cualquier cambio o nueva funcionalidad, se debe leer este índi
 | [Importación de CSV NACEX](IMPORTACION_CSV.md) | Contrato, validaciones, lectura textual, filtrado, deduplicación segura, normalización, URLs de seguimiento, conflictos, interfaz y límites de la carga de archivos NACEX (RF-01 a RF-06). | Vigente |
 | [Búsqueda, clasificación y selección de pedidos en Shopify](BUSQUEDA_PEDIDOS.md) | Regla temporal, lectura paginada, matching conservador, clasificación, vista previa y selección temporal RF-07 a RF-11. | Vigente |
 | [Confirmación, revalidación y cumplimiento en Shopify](CUMPLIMIENTOS.md) | Confirmación, revalidación por pedido, mutación idempotente, notificación, resultados y reintento RF-12 a RF-18. | Vigente |
+| [Informe CSV de resultados](INFORME_RESULTADOS.md) | Descarga temporal del informe de sesión, contrato de 16 columnas, seguridad CSV y ausencia de persistencia RF-19. | Vigente |
 
 ## Decisiones confirmadas posteriores a los documentos de producto
 
@@ -54,6 +55,9 @@ Estas decisiones deben incorporarse al documento temático correspondiente cuand
 - RF-10 muestra una tabla compacta de resultados con cabecera fija, desplazamiento horizontal en móvil y sin animaciones por fila. Es una vista de solo lectura y no permite seleccionar ni modificar pedidos.
 - RF-11 asigna los candidatos ambiguos mediante controles de radio. Elegir un candidato no selecciona la fila automáticamente: el usuario debe marcarla después de revisar la asignación.
 - RF-12 a RF-18 reenvían el CSV con la selección, reconstruyen el seguimiento en backend, revalidan cada pedido justo antes de la mutación y aíslan los resultados por fila. La notificación está activada por defecto y solo se solicita al crear un cumplimiento nuevo.
+- RF-19 informa todas las expediciones analizadas mediante las 16 columnas del PRD. Registra si la notificación fue solicitada, no si fue entregada, y deja vacía la fecha de procesamiento de las filas no ejecutadas.
+- El flujo completo se ha validado localmente con Shopify y la interfaz se ha revisado en escritorio y móvil. El MVP local no incorporará progreso detallado para lotes porque el volumen operativo previsto es corto.
+- El hosting definitivo se aplaza expresamente; mientras tanto la aplicación se utilizará en el entorno XAMPP local documentado.
 
 ## Decisiones pendientes
 

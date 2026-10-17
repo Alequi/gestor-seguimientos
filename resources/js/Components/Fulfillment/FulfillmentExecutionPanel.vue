@@ -1,22 +1,29 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue';
 import type {
+    ExecutionReportRow,
     FulfillmentExecutionResult,
     FulfillmentExecutionStatus,
+    NacexCsvRow,
+    ShopifyOrderPreview,
     ShipmentSelection,
 } from '../../Types/CsvUpload';
 import { isSafeShopifyAdminUrl } from '../../Utils/shopifyAdminUrl';
 
 const props = defineProps<{
     executionUrl: string;
+    reportUrl: string;
     sourceFile: File;
     selections: ShipmentSelection[];
+    rows: NacexCsvRow[];
 }>();
 
 const isConfirmationOpen = ref(false);
 const notifyCustomer = ref(true);
 const isExecuting = ref(false);
+const isDownloading = ref(false);
 const requestError = ref<string | null>(null);
+const downloadError = ref<string | null>(null);
 const results = ref<FulfillmentExecutionResult[]>([]);
 const confirmationDialog = ref<HTMLElement | null>(null);
 const executionTrigger = ref<HTMLButtonElement | null>(null);
@@ -84,6 +91,7 @@ async function execute(selections: ShipmentSelection[]): Promise<void> {
 
     isExecuting.value = true;
     requestError.value = null;
+    downloadError.value = null;
 
     const formData = new FormData();
     formData.append('csv', props.sourceFile);
@@ -107,7 +115,11 @@ async function execute(selections: ShipmentSelection[]): Promise<void> {
             return;
         }
 
-        const nextResults = normalizeResults(payload);
+        const nextResults = normalizeResults(
+            payload,
+            notifyCustomer.value,
+            formatProcessingDate(new Date()),
+        );
         if (nextResults === null) {
             requestError.value = 'El servidor ha devuelto un resultado incompleto. Revisa Shopify antes de reintentarlo.';
             return;
@@ -121,6 +133,123 @@ async function execute(selections: ShipmentSelection[]): Promise<void> {
     } finally {
         isExecuting.value = false;
     }
+}
+
+async function downloadReport(): Promise<void> {
+    if (results.value.length === 0 || isDownloading.value) {
+        return;
+    }
+
+    isDownloading.value = true;
+    downloadError.value = null;
+
+    try {
+        const response = await fetch(props.reportUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'text/csv, application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': getCsrfToken(),
+            },
+            body: JSON.stringify({ rows: buildReportRows() }),
+        });
+
+        if (!response.ok) {
+            const payload = response.headers.get('content-type')?.includes('application/json')
+                ? await response.json()
+                : null;
+            downloadError.value = readReportError(payload);
+            return;
+        }
+
+        const downloadUrl = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = 'informe-ejecucion-nacex.csv';
+        link.click();
+        URL.revokeObjectURL(downloadUrl);
+    } catch {
+        downloadError.value = 'No se ha podido descargar el informe. Los resultados siguen disponibles en esta página.';
+    } finally {
+        isDownloading.value = false;
+    }
+}
+
+function buildReportRows(): ExecutionReportRow[] {
+    const executions = new Map(
+        results.value.map((result) => [shipmentIdentity(result.originAgency, result.trackingNumber), result]),
+    );
+
+    return props.rows.map((row) => {
+        const execution = executions.get(shipmentIdentity(row.originAgency, row.trackingNumber));
+        const order = reportOrder(row, execution);
+
+        return {
+            reference: row.reference,
+            originAgency: row.originAgency,
+            trackingNumber: row.trackingNumber,
+            postalCode: row.postalCode,
+            registrationDate: row.registrationDate,
+            nacexStatus: row.status,
+            trackingUrl: row.trackingUrl,
+            matchStatus: row.matchStatus ?? '',
+            shopifyOrderName: order?.name ?? execution?.orderName ?? '',
+            shopifyCustomer: order?.shippingName ?? '',
+            shopifyOrderDate: order?.createdAt ?? '',
+            previousOrderStatus: order?.fulfillmentStatus ?? '',
+            fulfillmentResult: execution?.status ?? '',
+            notificationRequested: execution?.notificationRequested ? 'SÍ' : 'NO',
+            processedAt: execution?.processedAt ?? '',
+            errorMessage: execution?.status === 'ERROR'
+                ? execution.message
+                : row.errorMessage ?? '',
+        };
+    });
+}
+
+function reportOrder(
+    row: NacexCsvRow,
+    execution: FulfillmentExecutionResult | undefined,
+): ShopifyOrderPreview | null {
+    if (execution) {
+        const executedOrder = [row.shopifyOrder, ...row.candidateOrders]
+            .find((order) => order?.id === execution.orderId);
+
+        if (executedOrder) {
+            return executedOrder;
+        }
+    }
+
+    return row.shopifyOrder;
+}
+
+function shipmentIdentity(originAgency: string, trackingNumber: string): string {
+    return `${originAgency}:${trackingNumber}`;
+}
+
+function formatProcessingDate(date: Date): string {
+    const parts = new Intl.DateTimeFormat('es-ES', {
+        timeZone: 'Europe/Madrid',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+    return `${values.day}/${values.month}/${values.year} ${values.hour}:${values.minute}:${values.second}`;
+}
+
+function readReportError(payload: unknown): string {
+    if (isRecord(payload) && typeof payload.message === 'string') {
+        return payload.message;
+    }
+
+    return 'No se ha podido generar el informe. Los resultados siguen disponibles en esta página.';
 }
 
 function selectionKey(selection: ShipmentSelection): string {
@@ -166,18 +295,30 @@ function readErrorMessage(payload: unknown): string {
         : 'No se ha podido iniciar el cierre de pedidos.';
 }
 
-function normalizeResults(payload: unknown): FulfillmentExecutionResult[] | null {
+function normalizeResults(
+    payload: unknown,
+    notificationRequested: boolean,
+    processedAt: string,
+): FulfillmentExecutionResult[] | null {
     if (!isRecord(payload) || !isRecord(payload.data) || !Array.isArray(payload.data.results)) {
         return null;
     }
 
-    const normalized = payload.data.results.map(normalizeResult);
+    const normalized = payload.data.results.map((result) => normalizeResult(
+        result,
+        notificationRequested,
+        processedAt,
+    ));
     return normalized.every((result): result is FulfillmentExecutionResult => result !== null)
         ? normalized
         : null;
 }
 
-function normalizeResult(value: unknown): FulfillmentExecutionResult | null {
+function normalizeResult(
+    value: unknown,
+    notificationRequested: boolean,
+    processedAt: string,
+): FulfillmentExecutionResult | null {
     if (!isRecord(value)
         || typeof value.originAgency !== 'string'
         || typeof value.trackingNumber !== 'string'
@@ -201,6 +342,8 @@ function normalizeResult(value: unknown): FulfillmentExecutionResult | null {
         adminUrl: value.adminUrl,
         status: value.status,
         message: value.message,
+        notificationRequested: value.status === 'COMPLETED' && notificationRequested,
+        processedAt,
     };
 }
 
@@ -237,7 +380,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
         <p v-if="requestError" class="request-error" role="alert">{{ requestError }}</p>
 
         <div v-if="results.length > 0" class="execution-results" aria-live="polite">
-            <h4>Resultado de la ejecución</h4>
+            <div class="results-heading">
+                <div>
+                    <h4>Resultado de la ejecución</h4>
+                    <p>El informe incluye todas las expediciones analizadas y no se guardará en la aplicación.</p>
+                </div>
+                <button
+                    type="button"
+                    class="download-action"
+                    :disabled="isDownloading || isExecuting"
+                    @click="downloadReport"
+                >
+                    {{ isDownloading ? 'Preparando informe…' : 'Descargar informe CSV' }}
+                </button>
+            </div>
+            <p v-if="downloadError" class="request-error" role="alert">{{ downloadError }}</p>
             <ul>
                 <li v-for="result in results" :key="resultKey(result)">
                     <span class="result-copy">
@@ -361,6 +518,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 .execute-action,
 .confirm-action,
 .cancel-action,
+.download-action,
 .result-actions button {
     border-radius: 10px;
     cursor: pointer;
@@ -406,8 +564,22 @@ button:focus-visible,
 }
 
 .execution-results h4 {
-    margin: 0 0 10px;
+    margin: 0;
     color: var(--color-ink);
+}
+
+.results-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 12px;
+}
+
+.results-heading p {
+    margin: 4px 0 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
 }
 
 .execution-results ul {
@@ -453,6 +625,7 @@ button:focus-visible,
 }
 
 .result-actions button,
+.download-action,
 .cancel-action {
     min-height: 36px;
     padding: 0 12px;
@@ -559,6 +732,7 @@ button:focus-visible,
     }
 
     .cancel-action:not(:disabled):hover,
+    .download-action:not(:disabled):hover,
     .result-actions button:not(:disabled):hover {
         background: #f5f7fa;
     }
@@ -579,6 +753,7 @@ button:focus-visible,
     }
 
     .execution-results li,
+    .results-heading,
     .result-actions {
         align-items: flex-start;
         flex-direction: column;
@@ -607,6 +782,7 @@ button:focus-visible,
     .execute-action,
     .confirm-action,
     .cancel-action,
+    .download-action,
     .result-actions button {
         transition-duration: 0ms;
     }

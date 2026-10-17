@@ -4,7 +4,7 @@ Herramienta interna para importar expediciones desde un CSV de NACEX, localizar 
 
 ## Estado del proyecto
 
-El flujo operativo hasta el resultado por pedido está implementado. RF-01 a RF-11 validan, buscan, clasifican, presentan y seleccionan; RF-12 a RF-18 confirman, revalidan cada pedido y crean de forma idempotente el cumplimiento NACEX. RF-19, el informe descargable, sigue pendiente.
+El flujo operativo completo del MVP está implementado y validado en el entorno local. RF-01 a RF-11 validan, buscan, clasifican, presentan y seleccionan; RF-12 a RF-18 confirman, revalidan cada pedido y crean de forma idempotente el cumplimiento NACEX; RF-19 descarga el informe CSV temporal de la sesión. El usuario confirmó también la revisión visual en escritorio y móvil.
 
 ## Funcionalidad disponible
 
@@ -42,6 +42,10 @@ El flujo operativo hasta el resultado por pedido está implementado. RF-01 a RF-
 - Creación del cumplimiento NACEX para todos los artículos restantes de una única orden de cumplimiento válida.
 - Resultados independientes `COMPLETED`, `TRACKING_EXISTS`, `ALREADY_FULFILLED`, `SKIPPED_AFTER_REVALIDATION` y `ERROR`.
 - Aislamiento de errores y reintento manual con una nueva revalidación, sin detener el resto del lote.
+- Informe CSV con las 16 columnas del PRD y todas las expediciones analizadas, incluidas las no ejecutadas.
+- Registro explícito de notificación solicitada, resultado de cumplimiento y fecha de procesamiento en `Europe/Madrid` solo para filas ejecutadas.
+- CSV UTF-8 con BOM, separador `;`, conservación de ceros iniciales, neutralización de fórmulas y respuesta HTTP sin caché.
+- Descarga repetible durante la sesión sin archivos persistentes, base de datos, almacenamiento local ni datos operativos en cookies.
 - Aviso seguro y accesible cuando el CSV no contiene expediciones candidatas.
 - Feedback accesible con nombre, tamaño, codificación y filas validadas.
 - Procesamiento temporal sin guardar el archivo ni sus datos.
@@ -85,6 +89,7 @@ Documentos principales:
 - [Importación de CSV NACEX](DOC/IMPORTACION_CSV.md)
 - [Búsqueda de pedidos en Shopify](DOC/BUSQUEDA_PEDIDOS.md)
 - [Confirmación y cumplimientos Shopify](DOC/CUMPLIMIENTOS.md)
+- [Informe CSV de resultados](DOC/INFORME_RESULTADOS.md)
 - [Instrucciones para agentes](AGENTS.md)
 
 ## Stack aprobado
@@ -133,7 +138,7 @@ Todo cambio o nueva funcionalidad debe actualizar la documentación relacionada,
 └── README.md                      Entrada general al proyecto
 ```
 
-No existe carpeta `database/`, modelo Eloquent ni autenticación de usuarios. RF-01 a RF-11 cubren preparación, lectura, matching y selección; RF-12 a RF-18 revalidan y ejecutan mediante un contrato de cumplimiento separado. Los controladores permanecen delgados, el CSV se vuelve a preparar en backend y los resultados siguen solo en memoria.
+No existe carpeta `database/`, modelo Eloquent ni autenticación de usuarios. RF-01 a RF-11 cubren preparación, lectura, matching y selección; RF-12 a RF-18 revalidan y ejecutan mediante un contrato de cumplimiento separado; RF-19 adapta los resultados temporales a un DTO y genera la descarga mediante un caso de uso específico. Los controladores permanecen delgados, el CSV se vuelve a preparar en backend y los resultados siguen solo en memoria.
 
 ## Instalación y ejecución
 
@@ -167,6 +172,7 @@ Uso operativo:
 3. Ajusta la selección y pulsa **Completar pedidos**.
 4. Comprueba el recuento, decide si notificar y pulsa **Confirmar y completar**.
 5. Revisa el resultado de cada fila; reintenta únicamente los errores después de comprobar Shopify.
+6. Pulsa **Descargar informe CSV** para guardar el resultado de todas las expediciones analizadas. La aplicación no conservará una copia.
 
 La confirmación realiza cambios reales en la tienda configurada. Antes del primer uso, verifica en una tienda u orden de prueba que la aplicación instalada dispone de los scopes de escritura indicados en Configuración.
 
@@ -180,7 +186,7 @@ En XAMPP, el código PHP y `public/build` deben actualizarse juntos. Si se copia
 
 No debe ejecutarse `php artisan migrate`: la aplicación no utiliza base de datos propia. La guía detallada y las copias de respaldo del entorno están en [DOC/ENTORNO_DESARROLLO.md](DOC/ENTORNO_DESARROLLO.md).
 
-Después se adaptará el despliegue a un hosting cuyas capacidades todavía están pendientes de concretar.
+La adaptación a hosting queda aplazada; de momento la aplicación se utilizará localmente mediante XAMPP.
 
 ## Configuración
 
@@ -213,7 +219,7 @@ SHOPIFY_CLIENT_SECRET=
 
 Para cerrar pedidos, la aplicación instalada debe tener `read_orders` y los scopes de lectura y escritura de órdenes de cumplimiento aplicables: `read_assigned_fulfillment_orders`/`write_assigned_fulfillment_orders`, `read_merchant_managed_fulfillment_orders`/`write_merchant_managed_fulfillment_orders` o `read_third_party_fulfillment_orders`/`write_third_party_fulfillment_orders`, según el modelo de la tienda. Si se cambian scopes, la instalación o autorización de la aplicación debe actualizarse antes de operar.
 
-La conexión se comprobó con la consulta de solo lectura `shop { id }` a Shopify Admin GraphQL `2026-10`, sin mostrar el identificador ni el token. Esta prueba confirma autenticación y acceso básico a la API; **no confirma todavía los permisos reales de lectura y escritura de cumplimientos**. Las pruebas de desarrollo no mutan la tienda.
+La conexión se comprobó con la consulta de solo lectura `shop { id }` a Shopify Admin GraphQL `2026-10`, sin mostrar el identificador ni el token. El usuario confirmó posteriormente la validación local de los permisos reales y del flujo completo de análisis, selección, cumplimiento, notificación, resultados e informe. No se conservan en el repositorio pedidos, credenciales ni datos de esa validación.
 
 En XAMPP, un `.htaccess` en la raíz bloquea por HTTP `.env` y todas las rutas del proyecto salvo `public/`; se comprobaron respuestas `403` para `.env` y `200` para la aplicación. En otro servidor, debe publicarse solo `public/` y volver a verificar esta protección antes de configurar secretos.
 
